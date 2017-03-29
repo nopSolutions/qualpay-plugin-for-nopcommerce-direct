@@ -87,7 +87,7 @@ namespace Nop.Plugin.Payments.Qualpay.Controllers
                 Value = ((int)QualpayRequestType.Sale).ToString()
             });
 
-            return View("~/Plugins/Payments.Qualpay/Views/Qualpay/Configure.cshtml", model);
+            return View("~/Plugins/Payments.Qualpay/Views/Configure.cshtml", model);
         }
 
         [HttpPost]
@@ -178,7 +178,7 @@ namespace Nop.Plugin.Payments.Qualpay.Controllers
                 bool.TryParse(Request.Form.GetValues("UseStoredCard")[0], out useStoredId);
             model.UseStoredCard = useStoredId;
 
-            return View("~/Plugins/Payments.Qualpay/Views/Qualpay/PaymentInfo.cshtml", model);
+            return View("~/Plugins/Payments.Qualpay/Views/PaymentInfo.cshtml", model);
         }
 
         [NonAction]

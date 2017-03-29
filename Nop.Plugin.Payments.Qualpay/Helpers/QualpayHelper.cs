@@ -77,8 +77,6 @@ namespace Nop.Plugin.Payments.Qualpay.Helpers
         public static QualpayResponse PostRequest(QualpayRequest qualpayRequest, QualpayRequestType requestType, 
             string transactionId, QualpaySettings qualpaySettings, ILogger logger)
         {
-            ServicePointManager.SecurityProtocol = SecurityProtocolType.Tls12;
-
             //add credentials to request
             qualpayRequest.MerchantId = qualpaySettings.MerchantId;
             qualpayRequest.SecurityKey = qualpaySettings.SecurityKey;

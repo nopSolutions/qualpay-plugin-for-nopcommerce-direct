@@ -408,7 +408,7 @@ namespace Nop.Plugin.Payments.Qualpay
             //request succeeded
             var result = new RefundPaymentResult
             {
-                NewPaymentStatus = refundPaymentRequest.IsPartialRefund ? PaymentStatus.PartiallyRefunded : PaymentStatus.Refunded
+                NewPaymentStatus = PaymentStatus.PartiallyRefunded
             };
 
             return result;
@@ -551,6 +551,7 @@ namespace Nop.Plugin.Payments.Qualpay
             this.AddOrUpdatePluginLocaleResource("Plugins.Payments.Qualpay.Fields.SecurityKey.Hint", "Specify your Qualpay payment gateway security key.");
             this.AddOrUpdatePluginLocaleResource("Plugins.Payments.Qualpay.Fields.UseSandbox", "Use Sandbox");
             this.AddOrUpdatePluginLocaleResource("Plugins.Payments.Qualpay.Fields.UseSandbox.Hint", "Check to enable sandbox (testing environment).");
+            this.AddOrUpdatePluginLocaleResource("Plugins.Payments.Qualpay.PaymentMethodDescription", "Pay by credit / debit card using Qualpay payment gateway");
             this.AddOrUpdatePluginLocaleResource("Plugins.Payments.Qualpay.SaveCardDetails", "Save the card data to Qualpay Vault for next time");
             this.AddOrUpdatePluginLocaleResource("Plugins.Payments.Qualpay.UseStoredCard", "Use a previously saved card");
 
@@ -580,6 +581,7 @@ namespace Nop.Plugin.Payments.Qualpay
             this.DeletePluginLocaleResource("Plugins.Payments.Qualpay.Fields.SecurityKey.Hint");
             this.DeletePluginLocaleResource("Plugins.Payments.Qualpay.Fields.UseSandbox");
             this.DeletePluginLocaleResource("Plugins.Payments.Qualpay.Fields.UseSandbox.Hint");
+            this.DeletePluginLocaleResource("Plugins.Payments.Qualpay.PaymentMethodDescription");
             this.DeletePluginLocaleResource("Plugins.Payments.Qualpay.SaveCardDetails");
             this.DeletePluginLocaleResource("Plugins.Payments.Qualpay.UseStoredCard");
             base.Uninstall();
@@ -643,6 +645,16 @@ namespace Nop.Plugin.Payments.Qualpay
         public bool SkipPaymentInfo
         {
             get { return false; }
+        }
+        
+        /// <summary>
+        /// Gets a payment method description that will be displayed on checkout pages in the public store
+        /// </summary>
+        public string PaymentMethodDescription
+        {
+            //return description of this payment method to be display on "payment method" checkout step. good practice is to make it localizable
+            //for example, for a redirection payment method, description may be like this: "You will be redirected to Transaction site to complete the payment"
+            get { return _localizationService.GetResource("Plugins.Payments.Qualpay.PaymentMethodDescription"); }
         }
 
         #endregion
