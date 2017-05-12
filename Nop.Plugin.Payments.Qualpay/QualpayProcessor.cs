@@ -237,7 +237,8 @@ namespace Nop.Plugin.Payments.Qualpay
                 qualpayRequest.Cvv2 = processPaymentRequest.CreditCardCvv2;
                 qualpayRequest.ExpirationDate = string.Format("{0}{1}", processPaymentRequest.CreditCardExpireMonth.ToString("D2"),
                     processPaymentRequest.CreditCardExpireYear.ToString().Substring(2));
-                qualpayRequest.AvsAddress = customer.BillingAddress.Return(address => address.Address1, null);
+                //set billing address, max length is 20
+                qualpayRequest.AvsAddress = customer.BillingAddress.Return(address => address.Address1.Substring(0, 20), null);
                 qualpayRequest.AvsZipCode = customer.BillingAddress.Return(address => address.ZipPostalCode, null);
 
                 //save or update credit card details in Qualpay Vault
