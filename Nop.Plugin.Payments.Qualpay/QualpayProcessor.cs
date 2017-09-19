@@ -20,6 +20,7 @@ using Nop.Services.Logging;
 using Nop.Services.Orders;
 using Nop.Services.Payments;
 using Nop.Services.Tax;
+using System.Text.RegularExpressions;
 
 namespace Nop.Plugin.Payments.Qualpay
 {
@@ -239,7 +240,8 @@ namespace Nop.Plugin.Payments.Qualpay
                     processPaymentRequest.CreditCardExpireYear.ToString().Substring(2));
                 //set billing address, max length is 20
                 qualpayRequest.AvsAddress = customer.BillingAddress.Return(address => CommonHelper.EnsureMaximumLength(address.Address1, 20), null);
-                qualpayRequest.AvsZipCode = customer.BillingAddress.Return(address => address.ZipPostalCode, null);
+                qualpayRequest.AvsZipCode = customer.BillingAddress
+                    .Return(address => Regex.Replace(address.ZipPostalCode, "[^a-zA-Z0-9]+", string.Empty, RegexOptions.Compiled), null);
 
                 //save or update credit card details in Qualpay Vault
                 if (saveCard)
