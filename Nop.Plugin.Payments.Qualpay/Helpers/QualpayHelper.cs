@@ -83,8 +83,7 @@ namespace Nop.Plugin.Payments.Qualpay.Helpers
             qualpayRequest.DeveloperId = "nopCommerce";
 
             //create service url
-            var serviceUrl = string.Format("{0}{1}/{2}", GetQualpayPaymentGatewayUrl(qualpaySettings),
-                GetServicePath(requestType), transactionId);
+            var serviceUrl = $"{GetQualpayPaymentGatewayUrl(qualpaySettings)}{GetServicePath(requestType)}/{transactionId}";
 
             //create request
             var request = (HttpWebRequest)WebRequest.Create(serviceUrl);
@@ -120,7 +119,7 @@ namespace Nop.Plugin.Payments.Qualpay.Helpers
                     {
                         //log errors
                         var response = streamReader.ReadToEnd();
-                        logger.Error(string.Format("Qualpay error: {0}", response), ex);
+                        logger.Error($"Qualpay error: {response}", ex);
 
                         return JsonConvert.DeserializeObject<QualpayResponse>(response);
                     }

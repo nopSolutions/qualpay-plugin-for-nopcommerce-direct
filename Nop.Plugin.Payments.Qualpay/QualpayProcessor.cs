@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Web.Routing;
+using Microsoft.AspNetCore.Http;
 using Nop.Core;
 using nop = Nop.Core.Domain.Customers;
 using Nop.Core.Domain.Orders;
@@ -10,6 +10,8 @@ using Nop.Core.Plugins;
 using Nop.Plugin.Payments.Qualpay.Controllers;
 using Nop.Plugin.Payments.Qualpay.Domain;
 using Nop.Plugin.Payments.Qualpay.Helpers;
+using Nop.Plugin.Payments.Qualpay.Models;
+using Nop.Plugin.Payments.Qualpay.Validators;
 using Nop.Services.Catalog;
 using Nop.Services.Common;
 using Nop.Services.Configuration;
@@ -43,6 +45,7 @@ namespace Nop.Plugin.Payments.Qualpay
         private readonly ISettingService _settingService;
         private readonly ITaxService _taxService;
         private readonly QualpaySettings _qualpaySettings;
+        private readonly IWebHelper _webHelper;
 
         #endregion
 
@@ -60,7 +63,8 @@ namespace Nop.Plugin.Payments.Qualpay
             IProductAttributeParser productAttributeParser,
             ISettingService settingService,
             ITaxService taxService,
-            QualpaySettings qualpaySettings)
+            QualpaySettings qualpaySettings,
+            IWebHelper webHelper)
         {
             this._checkoutAttributeParser = checkoutAttributeParser;
             this._currencyService = currencyService;
@@ -75,6 +79,7 @@ namespace Nop.Plugin.Payments.Qualpay
             this._settingService = settingService;
             this._taxService = taxService;
             this._qualpaySettings = qualpaySettings;
+            this._webHelper = webHelper;
         }
 
         #endregion
@@ -120,8 +125,8 @@ namespace Nop.Plugin.Payments.Qualpay
                 var attributeValues = _checkoutAttributeParser.ParseCheckoutAttributeValues(checkoutAttributesXml);
                 items.AddRange(attributeValues.Where(attributeValue => attributeValue.CheckoutAttribute != null).Select(attributeValue =>
                 {
-                    return CreateItem(_taxService.GetCheckoutAttributePrice(attributeValue, false, customer), 
-                        string.Format("{0} ({1})", attributeValue.CheckoutAttribute.Name, attributeValue.Name), "checkout");
+                    return CreateItem(_taxService.GetCheckoutAttributePrice(attributeValue, false, customer),
+                        $"{attributeValue.CheckoutAttribute.Name} ({attributeValue.Name})", "checkout");
                 }));
             }
 
@@ -129,7 +134,7 @@ namespace Nop.Plugin.Payments.Qualpay
             var paymentAdditionalFee = _paymentService.GetAdditionalHandlingFee(shoppingCart, PluginDescriptor.SystemName);
             var paymentPrice = _taxService.GetPaymentMethodAdditionalFee(paymentAdditionalFee, false, customer);
             if (paymentPrice > decimal.Zero)
-                items.Add(CreateItem(paymentPrice, string.Format("Payment ({0})", PluginDescriptor.FriendlyName), "payment"));
+                items.Add(CreateItem(paymentPrice, $"Payment ({PluginDescriptor.FriendlyName})", "payment"));
 
             //create transaction item for shipping rate
             if (shoppingCart.RequiresShipping())
@@ -188,10 +193,11 @@ namespace Nop.Plugin.Payments.Qualpay
                 throw new NopException("USD currency cannot be loaded");
 
             //create request
-            var qualpayRequest = new QualpayRequest();
-
-            //set order number, max length is 25 
-            qualpayRequest.PurchaseId = processPaymentRequest.OrderGuid.ToString().Substring(0, 25);
+            var qualpayRequest = new QualpayRequest
+            {
+                //set order number, max length is 25 
+                PurchaseId = processPaymentRequest.OrderGuid.ToString().Substring(0, 25)
+            };
 
             //set amount in USD 
             var amount = _currencyService.ConvertFromPrimaryStoreCurrency(processPaymentRequest.OrderTotal, usdCurrency);
@@ -199,9 +205,8 @@ namespace Nop.Plugin.Payments.Qualpay
             qualpayRequest.CurrencyIsoCode = 840; // numeric ISO code of USD
 
             //add item lines
-            decimal taxAmount;
-            qualpayRequest.Items = GetItems(customer, processPaymentRequest.StoreId, 
-                processPaymentRequest.OrderTotal, out taxAmount).ToArray();
+            qualpayRequest.Items = GetItems(customer, processPaymentRequest.StoreId,
+                processPaymentRequest.OrderTotal, out decimal taxAmount).ToArray();
 
             //set amount of items in USD 
             foreach (var item in qualpayRequest.Items)
@@ -235,11 +240,10 @@ namespace Nop.Plugin.Payments.Qualpay
                 qualpayRequest.CardholderName = processPaymentRequest.CreditCardName;
                 qualpayRequest.CardNumber = processPaymentRequest.CreditCardNumber;
                 qualpayRequest.Cvv2 = processPaymentRequest.CreditCardCvv2;
-                qualpayRequest.ExpirationDate = string.Format("{0}{1}", processPaymentRequest.CreditCardExpireMonth.ToString("D2"),
-                    processPaymentRequest.CreditCardExpireYear.ToString().Substring(2));
+                qualpayRequest.ExpirationDate = $"{processPaymentRequest.CreditCardExpireMonth:D2}{processPaymentRequest.CreditCardExpireYear.ToString().Substring(2)}";
                 //set billing address, max length is 20
-                qualpayRequest.AvsAddress = customer.BillingAddress.Return(address => CommonHelper.EnsureMaximumLength(address.Address1, 20), null);
-                qualpayRequest.AvsZipCode = customer.BillingAddress.Return(address => address.ZipPostalCode, null);
+                qualpayRequest.AvsAddress = CommonHelper.EnsureMaximumLength(customer.BillingAddress?.Address1, 20);
+                qualpayRequest.AvsZipCode = customer.BillingAddress?.ZipPostalCode;
 
                 //save or update credit card details in Qualpay Vault
                 if (saveCard)
@@ -252,14 +256,13 @@ namespace Nop.Plugin.Payments.Qualpay
                         qualpayRequest.CustomerId = customer.Id.ToString();
                         qualpayRequest.Customer = new Customer
                         {
-                            CustomerEmail = customer.BillingAddress.Return(address => address.Email, null),
-                            CustomerFirstName = customer.BillingAddress.Return(address => address.FirstName, null),
-                            CustomerLastName = customer.BillingAddress.Return(address => address.LastName, null),
-                            CustomerPhone = customer.BillingAddress.Return(address => address.PhoneNumber, null)
+                            CustomerEmail = customer.BillingAddress?.Email,
+                            CustomerFirstName = customer.BillingAddress?.FirstName,
+                            CustomerLastName = customer.BillingAddress?.LastName,
+                            CustomerPhone = customer.BillingAddress?.PhoneNumber
                         };
                     }
                 }
-
             }
 
             //get response
@@ -481,7 +484,7 @@ namespace Nop.Plugin.Payments.Qualpay
         public bool CanRePostProcessPayment(Order order)
         {
             if (order == null)
-                throw new ArgumentNullException("order");
+                throw new ArgumentNullException(nameof(order));
             
             //let's ensure that at least 5 seconds passed after order is placed
             //P.S. there's no any particular reason for that. we just do it
@@ -491,30 +494,63 @@ namespace Nop.Plugin.Payments.Qualpay
             return true;
         }
 
-        /// <summary>
-        /// Gets a route for provider configuration
-        /// </summary>
-        /// <param name="actionName">Action name</param>
-        /// <param name="controllerName">Controller name</param>
-        /// <param name="routeValues">Route values</param>
-        public void GetConfigurationRoute(out string actionName, out string controllerName, out RouteValueDictionary routeValues)
+        public override string GetConfigurationPageUrl()
         {
-            actionName = "Configure";
-            controllerName = "Qualpay";
-            routeValues = new RouteValueDictionary { { "Namespaces", "Nop.Plugin.Payments.Qualpay.Controllers" }, { "area", null } };
+            return $"{_webHelper.GetStoreLocation()}Admin/Qualpay/Configure";
         }
 
-        /// <summary>
-        /// Gets a route for payment info
-        /// </summary>
-        /// <param name="actionName">Action name</param>
-        /// <param name="controllerName">Controller name</param>
-        /// <param name="routeValues">Route values</param>
-        public void GetPaymentInfoRoute(out string actionName, out string controllerName, out RouteValueDictionary routeValues)
+        public void GetPublicViewComponent(out string viewComponentName)
         {
-            actionName = "PaymentInfo";
-            controllerName = "Qualpay";
-            routeValues = new RouteValueDictionary { { "Namespaces", "Nop.Plugin.Payments.Qualpay.Controllers" }, { "area", null } };
+            viewComponentName = "Qualpay";
+        }
+
+        public IList<string> ValidatePaymentForm(IFormCollection form)
+        {
+            var warnings = new List<string>();
+
+            //validate
+            var validator = new PaymentInfoValidator(_localizationService);
+            var model = new PaymentInfoModel
+            {
+                CardholderName = form["CardholderName"],
+                CardNumber = form["CardNumber"],
+                CardCode = form["CardCode"],
+                ExpireMonth = form["ExpireMonth"],
+                ExpireYear = form["ExpireYear"]
+            };
+
+            //don't validate card details on using stored card
+            var useStoredCard = false;
+            if (form.Keys.Contains("UseStoredCard"))
+                bool.TryParse(form["UseStoredCard"][0], out useStoredCard);
+            model.UseStoredCard = useStoredCard;
+
+            var validationResult = validator.Validate(model);
+            if (!validationResult.IsValid)
+                warnings.AddRange(validationResult.Errors.Select(error => error.ErrorMessage));
+
+            return warnings;
+        }
+
+        public ProcessPaymentRequest GetPaymentInfo(IFormCollection form)
+        {
+            var paymentRequest = new ProcessPaymentRequest
+            {
+                CreditCardName = form["CardholderName"],
+                CreditCardNumber = form["CardNumber"],
+                CreditCardExpireMonth = int.Parse(form["ExpireMonth"]),
+                CreditCardExpireYear = int.Parse(form["ExpireYear"]),
+                CreditCardCvv2 = form["CardCode"]
+            };
+
+            //pass custom values to payment processor
+            if (form.Keys.Contains("SaveCardDetails") && bool.TryParse(form["SaveCardDetails"][0], out bool saveCardDetails) && saveCardDetails)
+                paymentRequest.CustomValues.Add(_localizationService.GetResource("Plugins.Payments.Qualpay.SaveCardDetails"), true);
+
+            if (form.Keys.Contains("UseStoredCard") && bool.TryParse(form["UseStoredCard"][0], out bool useStoredCard) && useStoredCard)
+                paymentRequest.CustomValues.Add(_localizationService.GetResource("Plugins.Payments.Qualpay.UseStoredCard"), true);
+
+            return paymentRequest;
         }
 
         /// <summary>

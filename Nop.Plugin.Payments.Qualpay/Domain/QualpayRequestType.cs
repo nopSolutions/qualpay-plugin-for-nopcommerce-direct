@@ -1,5 +1,4 @@
-﻿
-namespace Nop.Plugin.Payments.Qualpay.Domain
+﻿namespace Nop.Plugin.Payments.Qualpay.Domain
 {
     /// <summary>
     /// Represents enumeration of request types

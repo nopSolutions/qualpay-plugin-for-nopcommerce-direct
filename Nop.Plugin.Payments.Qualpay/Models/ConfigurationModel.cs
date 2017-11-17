@@ -1,7 +1,7 @@
 ﻿using System.Collections.Generic;
-using System.Web.Mvc;
-using Nop.Web.Framework;
-using Nop.Web.Framework.Mvc;
+using Microsoft.AspNetCore.Mvc.Rendering;
+using Nop.Web.Framework.Mvc.ModelBinding;
+using Nop.Web.Framework.Mvc.Models;
 
 namespace Nop.Plugin.Payments.Qualpay.Models
 {
@@ -17,7 +17,6 @@ namespace Nop.Plugin.Payments.Qualpay.Models
         [NopResourceDisplayName("Plugins.Payments.Qualpay.Fields.MerchantId")]
         public string MerchantId { get; set; }
 
-        [AllowHtml]
         [NopResourceDisplayName("Plugins.Payments.Qualpay.Fields.SecurityKey")]
         public string SecurityKey { get; set; }
         public bool SecurityKey_OverrideForStore { get; set; }

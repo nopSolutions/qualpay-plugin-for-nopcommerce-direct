@@ -18,12 +18,12 @@
 
 <script>
     $(document).ready(function() {
-        $("#@Html.FieldIdFor(model => model.UseStoredCard)").change(toggleUseStoredCard);
+        $("#@Html.IdFor(model => model.UseStoredCard)").change(toggleUseStoredCard);
         toggleUseStoredCard();
     });
 
     function toggleUseStoredCard() {
-        if ($('#@Html.FieldIdFor(model => model.UseStoredCard)').is(':checked')) {
+        if ($('#@Html.IdFor(model => model.UseStoredCard)').is(':checked')) {
             $('#qualpay-card-details').hide();
         } else {
             $('#qualpay-card-details').show();
