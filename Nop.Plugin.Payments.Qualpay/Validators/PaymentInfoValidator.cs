@@ -16,15 +16,19 @@ namespace Nop.Plugin.Payments.Qualpay.Validators
             RuleFor(model => model.CardholderName)
                 .NotEmpty().WithMessage(localizationService.GetResource("Payment.CardholderName.Required"))
                 .When(model => !model.UseStoredCard);
+
             RuleFor(model => model.CardNumber)
                 .IsCreditCard().WithMessage(localizationService.GetResource("Payment.CardNumber.Wrong"))
                 .When(model => !model.UseStoredCard);
+
             RuleFor(model => model.CardCode)
                 .Matches(@"^[0-9]{3,4}$").WithMessage(localizationService.GetResource("Payment.CardCode.Wrong"))
                 .When(model => !model.UseStoredCard);
+
             RuleFor(model => model.ExpireMonth)
                 .NotEmpty().WithMessage(localizationService.GetResource("Payment.ExpireMonth.Required"))
                 .When(model => !model.UseStoredCard);
+
             RuleFor(model => model.ExpireYear)
                 .NotEmpty().WithMessage(localizationService.GetResource("Payment.ExpireYear.Required"))
                 .When(model => !model.UseStoredCard);

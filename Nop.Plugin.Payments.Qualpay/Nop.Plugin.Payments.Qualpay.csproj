@@ -5,7 +5,7 @@
     <Copyright>Copyright © Nop Solutions, Ltd</Copyright> 
     <Company>Nop Solutions, Ltd</Company> 
     <Authors>Nop Solutions, Ltd</Authors> 
-    <Version>1.20</Version> 
+    <Version>1.30</Version> 
     <Description>This plugin allows paying with Qualpay payment gateway</Description> 
     <PackageLicenseUrl></PackageLicenseUrl> 
     <PackageProjectUrl>https://www.nopcommerce.com/p/2670/qualpay-payment-gateway.aspx</PackageProjectUrl> 
@@ -49,7 +49,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\Presentation\Nop.Web.Framework\Nop.Web.Framework.csproj" />
+    <ProjectReference Include="..\..\Presentation\Nop.Web\Nop.Web.csproj" />
   </ItemGroup>
   
   <!-- This target execute after "Build" target -->

@@ -24,9 +24,9 @@ namespace Nop.Plugin.Payments.Qualpay
         public bool UseSandbox { get; set; }
 
         /// <summary>
-        /// Gets or sets the payment transaction mode (authorization only or authorization and capture in a single request)
+        /// Gets or sets the payment transaction type (authorization only or authorization and capture in a single request)
         /// </summary>
-        public QualpayRequestType PaymentTransactionType { get; set; }
+        public TransactionType PaymentTransactionType { get; set; }
 
         /// <summary>
         /// Gets or sets an additional fee

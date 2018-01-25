@@ -1,39 +1,44 @@
 ﻿using System.Collections.Generic;
 using Microsoft.AspNetCore.Mvc.Rendering;
-using Nop.Web.Framework.Mvc.ModelBinding;
 using Nop.Web.Framework.Mvc.Models;
 
 namespace Nop.Plugin.Payments.Qualpay.Models
 {
+    /// <summary>
+    /// Represents the Qualpay payment model
+    /// </summary>
     public class PaymentInfoModel : BaseNopModel
     {
+        #region Ctor
+
         public PaymentInfoModel()
         {
             ExpireMonths = new List<SelectListItem>();
             ExpireYears = new List<SelectListItem>();
         }
 
-        [NopResourceDisplayName("Payment.CardholderName")]
-        public string CardholderName { get; set; }
+        #endregion
 
-        [NopResourceDisplayName("Payment.CardNumber")]
+        #region Properties
+
+        public bool IsGuest { get; set; }
+
+        public string CardholderName { get; set; }
+        
         public string CardNumber { get; set; }
 
-        [NopResourceDisplayName("Payment.ExpirationDate")]
-        public string ExpireMonth { get; set; }
-        public IList<SelectListItem> ExpireMonths { get; set; }
-
-        [NopResourceDisplayName("Payment.ExpirationDate")]
-        public string ExpireYear { get; set; }
-        public IList<SelectListItem> ExpireYears { get; set; }
-
-        [NopResourceDisplayName("Payment.CardCode")]
         public string CardCode { get; set; }
 
-        [NopResourceDisplayName("Plugins.Payments.Qualpay.SaveCardDetails")]
+        public string ExpireMonth { get; set; }
+        public IList<SelectListItem> ExpireMonths { get; set; }
+        
+        public string ExpireYear { get; set; }
+        public IList<SelectListItem> ExpireYears { get; set; }
+        
         public bool SaveCardDetails { get; set; }
-
-        [NopResourceDisplayName("Plugins.Payments.Qualpay.UseStoredCard")]
+        
         public bool UseStoredCard { get; set; }
+
+        #endregion
     }
 }

@@ -5,12 +5,21 @@ using Nop.Web.Framework.Mvc.Models;
 
 namespace Nop.Plugin.Payments.Qualpay.Models
 {
+    /// <summary>
+    /// Represents the Qualpay configuration model
+    /// </summary>
     public class ConfigurationModel : BaseNopModel
     {
+        #region Ctor
+
         public ConfigurationModel()
         {
             PaymentTransactionTypes = new List<SelectListItem>();
         }
+
+        #endregion
+
+        #region Properties
 
         public int ActiveStoreScopeConfiguration { get; set; }
 
@@ -37,5 +46,7 @@ namespace Nop.Plugin.Payments.Qualpay.Models
         [NopResourceDisplayName("Plugins.Payments.Qualpay.Fields.AdditionalFeePercentage")]
         public bool AdditionalFeePercentage { get; set; }
         public bool AdditionalFeePercentage_OverrideForStore { get; set; }
+
+        #endregion
     }
 }

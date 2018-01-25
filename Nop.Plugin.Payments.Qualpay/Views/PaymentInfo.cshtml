@@ -1,20 +1,8 @@
-﻿@{
+﻿@model Nop.Plugin.Payments.Qualpay.Models.PaymentInfoModel
+
+@{
     Layout = "";
 }
-@using Nop.Web.Framework
-@model Nop.Plugin.Payments.Qualpay.Models.PaymentInfoModel
-
-<table width="100%" cellspacing="2" cellpadding="1" border="0">
-    <tr>
-        <td width="100px">
-            @Html.LabelFor(model => model.UseStoredCard, false):
-        </td>
-        <td>
-            @Html.EditorFor(model => model.UseStoredCard)
-            @Html.ValidationMessageFor(model => model.UseStoredCard)
-        </td>
-    </tr>
-</table>
 
 <script>
     $(document).ready(function() {
@@ -31,51 +19,69 @@
     }
 </script>
 
+@if (!Model.IsGuest)
+{
+    <table width="100%" cellspacing="2" cellpadding="1" border="0">
+        <tr>
+            <td>
+                <label asp-for="UseStoredCard">@T("Plugins.Payments.Qualpay.UseStoredCard"):</label>
+            </td>
+            <td>
+                <input type="checkbox" asp-for="UseStoredCard" />
+                <span asp-validation-for="UseStoredCard"></span>
+            </td>
+        </tr>
+    </table>
+}
+
 <table width="100%" cellspacing="2" cellpadding="1" border="0" id="qualpay-card-details">
     <tr>
         <td>
-            @Html.LabelFor(model => model.CardholderName, false):
+            <label asp-for="CardholderName">@T("Payment.CardholderName"):</label>
         </td>
         <td>
-            @Html.TextBoxFor(model => model.CardholderName, new { style = "Width: 165px;", autocomplete = "off" })
-            @Html.ValidationMessageFor(model => model.CardholderName)
-        </td>
-    </tr>
-    <tr>
-        <td>
-            @Html.LabelFor(model => model.CardNumber, false):
-        </td>
-        <td>
-            @Html.TextBoxFor(model => model.CardNumber, new { style = "Width: 165px;", autocomplete = "off", maxlength = 22 })
-            @Html.ValidationMessageFor(model => model.CardNumber)
+            <input type="text" asp-for="CardholderName" style="width:165px;" autocomplete="off" />
+            <span asp-validation-for="CardholderName"></span>
         </td>
     </tr>
     <tr>
         <td>
-            @Html.LabelFor(model => model.ExpireMonth, false):
+            <label asp-for="CardNumber">@T("Payment.CardNumber"):</label>
         </td>
         <td>
-            @Html.DropDownListFor(model => model.ExpireMonth, Model.ExpireMonths)
+            <input type="text" asp-for="CardNumber" style="width:165px;" autocomplete="off" maxlength="22" />
+            <span asp-validation-for="CardNumber"></span>
+        </td>
+    </tr>
+    <tr>
+        <td>
+            <label asp-for="ExpireMonth">@T("Payment.ExpirationDate"):</label>
+        </td>
+        <td>
+            <select asp-for="ExpireMonth" asp-items="Model.ExpireMonths"></select>
             /
-            @Html.DropDownListFor(model => model.ExpireYear, Model.ExpireYears)
+            <select asp-for="ExpireYear" asp-items="Model.ExpireYears"></select>
         </td>
     </tr>
     <tr>
         <td>
-            @Html.LabelFor(model => model.CardCode, false):
+            <label asp-for="CardCode">@T("Payment.CardCode"):</label>
         </td>
         <td>
-            @Html.TextBoxFor(model => model.CardCode, new { style = "Width: 60px;", autocomplete = "off", maxlength = 4 })
-            @Html.ValidationMessageFor(model => model.CardCode)
+            <input type="text" asp-for="CardCode" style="width:60px;" autocomplete="off" maxlength="4" />
+            <span asp-validation-for="CardCode"></span>
         </td>
     </tr>
-    <tr>
-        <td width="100px">
-            @Html.LabelFor(model => model.SaveCardDetails, false):
-        </td>
-        <td>
-            @Html.EditorFor(model => model.SaveCardDetails)
-            @Html.ValidationMessageFor(model => model.SaveCardDetails)
-        </td>
-    </tr>
+    @if (!Model.IsGuest)
+    {
+        <tr>
+            <td>
+                <label asp-for="SaveCardDetails">@T("Plugins.Payments.Qualpay.SaveCardDetails"):</label>
+            </td>
+            <td>
+                <input type="checkbox" asp-for="SaveCardDetails" />
+                <span asp-validation-for="SaveCardDetails"></span>
+            </td>
+        </tr>
+    }
 </table>

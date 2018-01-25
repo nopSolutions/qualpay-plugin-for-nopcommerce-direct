@@ -1,8 +1,8 @@
-﻿@{
+﻿@model Nop.Plugin.Payments.Qualpay.Models.ConfigurationModel;
+
+@{
     Layout = "_ConfigurePlugin";
 }
-@model ConfigurationModel
-@using Nop.Plugin.Payments.Qualpay.Models;
 
 @await Component.InvokeAsync("StoreScopeConfiguration")
 
@@ -13,13 +13,13 @@
                 <p>
                     For plugin configuration follow these steps:<br />
                     <br />
-                    1. <a href="https://www.qualpay.com/" target="_blank">Create Qualpay account</a><br />
+                    1. <a href="http://www.qualpay.com/nopcommerce" target="_blank">Create Qualpay account</a><br />
                     2. Log in at the <a href="https://app.qualpay.com/" target="_blank">production service</a>
                     or at the <a href="https://app-test.qualpay.com/ target=" _blank"> sandbox service</a><br />
                     3. Go to the 'Administration' -> 'Payment Gateway Security Keys' and find Security Key<br />
                     4. Fill in your Qualpay Payment Gateway account details below<br />
                     <br />
-                    <em>Note: Qualpay Payment Gateway supports only USD currency, ensure that you have correctly configured exchange rate from your primary store currency to the USD currency.</em><br />
+                    <em>Note: Qualpay Payment Gateway supports only USD currency, so ensure that you have configured the USD as your primary store currency.</em><br />
                 </p>
                 <div class="form-group">
                     <div class="col-md-3">
@@ -82,9 +82,7 @@
                 </div>
                 <div class="form-group">
                     <div class="col-md-9 col-md-offset-3">
-                        <button type="submit" class="btn btn-primary">
-                            @T("Admin.Common.Save")
-                        </button>
+                        <input type="submit" name="save" class="btn btn-primary" value="@T("Admin.Common.Save")" />
                     </div>
                 </div>
             </div>

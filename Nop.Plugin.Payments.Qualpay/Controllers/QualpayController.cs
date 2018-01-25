@@ -7,39 +7,35 @@ using Nop.Services.Configuration;
 using Nop.Services.Localization;
 using Nop.Services.Security;
 using Nop.Services.Stores;
-using Nop.Web.Framework;
-using Nop.Web.Framework.Controllers;
-using Nop.Web.Framework.Mvc.Filters;
+using Nop.Web.Areas.Admin.Controllers;
 
 namespace Nop.Plugin.Payments.Qualpay.Controllers
 {
-    [AuthorizeAdmin]
-    [Area(AreaNames.Admin)]
-    public class QualpayController : BasePaymentController
+    public class QualpayController : BaseAdminController
     {
         #region Fields
 
         private readonly ILocalizationService _localizationService;
+        private readonly IPermissionService _permissionService;
         private readonly ISettingService _settingService;
         private readonly IStoreService _storeService;
         private readonly IWorkContext _workContext;
-        private readonly IPermissionService _permissionService;
 
         #endregion
 
         #region Ctor
 
         public QualpayController(ILocalizationService localizationService,
+            IPermissionService permissionService,
             ISettingService settingService,
             IStoreService storeService,
-            IWorkContext workContext,
-            IPermissionService permissionService)
+            IWorkContext workContext)
         {
             this._localizationService = localizationService;
+            this._permissionService = permissionService;
             this._settingService = settingService;
             this._storeService = storeService;
             this._workContext = workContext;
-            this._permissionService = permissionService;
         }
 
         #endregion
@@ -79,13 +75,13 @@ namespace Nop.Plugin.Payments.Qualpay.Controllers
             //prepare payment transaction modes
             model.PaymentTransactionTypes.Add(new SelectListItem
             {
-                Text = QualpayRequestType.Authorization.GetLocalizedEnum(_localizationService, _workContext),
-                Value = ((int)QualpayRequestType.Authorization).ToString()
+                Text = TransactionType.Authorization.GetLocalizedEnum(_localizationService, _workContext),
+                Value = ((int)TransactionType.Authorization).ToString()
             });
             model.PaymentTransactionTypes.Add(new SelectListItem
             {
-                Text = QualpayRequestType.Sale.GetLocalizedEnum(_localizationService, _workContext),
-                Value = ((int)QualpayRequestType.Sale).ToString()
+                Text = TransactionType.Sale.GetLocalizedEnum(_localizationService, _workContext),
+                Value = ((int)TransactionType.Sale).ToString()
             });
 
             return View("~/Plugins/Payments.Qualpay/Views/Configure.cshtml", model);
@@ -108,7 +104,7 @@ namespace Nop.Plugin.Payments.Qualpay.Controllers
             settings.MerchantId = model.MerchantId;
             settings.SecurityKey = model.SecurityKey;
             settings.UseSandbox = model.UseSandbox;
-            settings.PaymentTransactionType = (QualpayRequestType)model.PaymentTransactionTypeId;
+            settings.PaymentTransactionType = (TransactionType)model.PaymentTransactionTypeId;
             settings.AdditionalFee = model.AdditionalFee;
             settings.AdditionalFeePercentage = model.AdditionalFeePercentage;
 

@@ -3,14 +3,15 @@ using System.Collections.Generic;
 using System.Linq;
 using Microsoft.AspNetCore.Http;
 using Nop.Core;
-using nop = Nop.Core.Domain.Customers;
+using Nop.Core.Domain.Customers;
+using Nop.Core.Domain.Directory;
 using Nop.Core.Domain.Orders;
 using Nop.Core.Domain.Payments;
 using Nop.Core.Plugins;
-using Nop.Plugin.Payments.Qualpay.Controllers;
 using Nop.Plugin.Payments.Qualpay.Domain;
-using Nop.Plugin.Payments.Qualpay.Helpers;
+using Nop.Plugin.Payments.Qualpay.Domain.PaymentGateway;
 using Nop.Plugin.Payments.Qualpay.Models;
+using Nop.Plugin.Payments.Qualpay.Services;
 using Nop.Plugin.Payments.Qualpay.Validators;
 using Nop.Services.Catalog;
 using Nop.Services.Common;
@@ -32,6 +33,7 @@ namespace Nop.Plugin.Payments.Qualpay
     {
         #region Fields
 
+        private readonly CurrencySettings _currencySettings;
         private readonly ICheckoutAttributeParser _checkoutAttributeParser;
         private readonly ICurrencyService _currencyService;
         private readonly ICustomerService _customerService;
@@ -44,14 +46,16 @@ namespace Nop.Plugin.Payments.Qualpay
         private readonly IProductAttributeParser _productAttributeParser;
         private readonly ISettingService _settingService;
         private readonly ITaxService _taxService;
-        private readonly QualpaySettings _qualpaySettings;
         private readonly IWebHelper _webHelper;
+        private readonly QualpayManager _qualpayManager;
+        private readonly QualpaySettings _qualpaySettings;
 
         #endregion
 
         #region Ctor
 
-        public QualpayProcessor(ICheckoutAttributeParser checkoutAttributeParser,
+        public QualpayProcessor(CurrencySettings currencySettings,
+            ICheckoutAttributeParser checkoutAttributeParser,
             ICurrencyService currencyService,
             ICustomerService customerService,
             IGenericAttributeService genericAttributeService,
@@ -63,9 +67,11 @@ namespace Nop.Plugin.Payments.Qualpay
             IProductAttributeParser productAttributeParser,
             ISettingService settingService,
             ITaxService taxService,
-            QualpaySettings qualpaySettings,
-            IWebHelper webHelper)
+            IWebHelper webHelper,
+            QualpayManager qualpayManager,
+            QualpaySettings qualpaySettings)
         {
+            this._currencySettings = currencySettings;
             this._checkoutAttributeParser = checkoutAttributeParser;
             this._currencyService = currencyService;
             this._customerService = customerService;
@@ -78,8 +84,9 @@ namespace Nop.Plugin.Payments.Qualpay
             this._productAttributeParser = productAttributeParser;
             this._settingService = settingService;
             this._taxService = taxService;
-            this._qualpaySettings = qualpaySettings;
             this._webHelper = webHelper;
+            this._qualpayManager = qualpayManager;
+            this._qualpaySettings = qualpaySettings;
         }
 
         #endregion
@@ -94,7 +101,7 @@ namespace Nop.Plugin.Payments.Qualpay
         /// <param name="orderTotal">Order total</param>
         /// <param name="taxAmount">Tax amount</param>
         /// <returns>List of transaction items</returns>
-        protected IList<LineItem> GetItems(nop.Customer customer, int storeId, decimal orderTotal, out decimal taxAmount)
+        private IList<LineItem> GetItems(Customer customer, int storeId, decimal orderTotal, out decimal taxAmount)
         {
             var items = new List<LineItem>();
 
@@ -107,19 +114,19 @@ namespace Nop.Plugin.Payments.Qualpay
             taxAmount = _orderTotalCalculationService.GetTaxTotal(shoppingCart);
 
             //create transaction items from shopping cart items
-            decimal taxRate;
             items.AddRange(shoppingCart.Where(shoppingCartItem => shoppingCartItem.Product != null).Select(shoppingCartItem =>
             {
                 //item price
                 var price = _taxService.GetProductPrice(shoppingCartItem.Product, _priceCalculationService.GetUnitPrice(shoppingCartItem),
-                    false, shoppingCartItem.Customer, out taxRate);
+                    false, shoppingCartItem.Customer, out _);
 
-                return CreateItem(price, shoppingCartItem.Product.Name, 
+                return CreateItem(price, shoppingCartItem.Product.Name,
                     shoppingCartItem.Product.FormatSku(shoppingCartItem.AttributesXml, _productAttributeParser), shoppingCartItem.Quantity);
             }));
 
             //create transaction items from checkout attributes
-            var checkoutAttributesXml = customer.GetAttribute<string>(nop.SystemCustomerAttributeNames.CheckoutAttributes, storeId);
+            var checkoutAttributesXml = customer
+                .GetAttribute<string>(SystemCustomerAttributeNames.CheckoutAttributes, storeId);
             if (!string.IsNullOrEmpty(checkoutAttributesXml))
             {
                 var attributeValues = _checkoutAttributeParser.ParseCheckoutAttributeValues(checkoutAttributesXml);
@@ -160,14 +167,14 @@ namespace Nop.Plugin.Payments.Qualpay
         /// <param name="productCode">Item code (e.g. SKU)</param>
         /// <param name="quantity">Quntity</param>
         /// <returns>Transaction line item</returns>
-        protected LineItem CreateItem(decimal price, string description, string productCode, int quantity = 1)
+        private LineItem CreateItem(decimal price, string description, string productCode, int quantity = 1)
         {
             return new LineItem
             {
                 CreditType = ItemCreditType.Debit,
-                Description = description,
+                Description = CommonHelper.EnsureMaximumLength(description, 25),
                 MeasureUnit = "*",
-                ProductCode = productCode,
+                ProductCode = CommonHelper.EnsureMaximumLength(productCode, 12),
                 Quantity = quantity,
                 UnitPrice = price
             };
@@ -184,40 +191,25 @@ namespace Nop.Plugin.Payments.Qualpay
         /// <returns>Process payment result</returns>
         public ProcessPaymentResult ProcessPayment(ProcessPaymentRequest processPaymentRequest)
         {
-            var customer = _customerService.GetCustomerById(processPaymentRequest.CustomerId);
-            if (customer == null)
-                throw new NopException("Customer cannot be loaded");
+            var customer = _customerService.GetCustomerById(processPaymentRequest.CustomerId)
+                ?? throw new NopException("Customer cannot be loaded");
 
-            var usdCurrency = _currencyService.GetCurrencyByCode("USD");
-            if (usdCurrency == null)
-                throw new NopException("USD currency cannot be loaded");
+            //Qualpay Payment Gateway supports only USD currency
+            var primaryStoreCurrency = _currencyService.GetCurrencyById(_currencySettings.PrimaryStoreCurrencyId);
+            if (!primaryStoreCurrency.CurrencyCode.Equals("USD", StringComparison.InvariantCultureIgnoreCase))
+                throw new NopException("USD is not primary store currency");
 
             //create request
-            var qualpayRequest = new QualpayRequest
+            var transactionRequest = new TransactionRequest
             {
                 //set order number, max length is 25 
-                PurchaseId = processPaymentRequest.OrderGuid.ToString().Substring(0, 25)
+                PurchaseId = CommonHelper.EnsureMaximumLength(processPaymentRequest.OrderGuid.ToString(), 25),
+                Amount = Math.Round(processPaymentRequest.OrderTotal, 2),
+                CurrencyIsoCode = QualpayDefaults.UsdNumericIsoCode
             };
 
-            //set amount in USD 
-            var amount = _currencyService.ConvertFromPrimaryStoreCurrency(processPaymentRequest.OrderTotal, usdCurrency);
-            qualpayRequest.Amount = Math.Round(amount, 2);
-            qualpayRequest.CurrencyIsoCode = 840; // numeric ISO code of USD
-
-            //add item lines
-            qualpayRequest.Items = GetItems(customer, processPaymentRequest.StoreId,
-                processPaymentRequest.OrderTotal, out decimal taxAmount).ToArray();
-
-            //set amount of items in USD 
-            foreach (var item in qualpayRequest.Items)
-            {
-                var usdPrice = _currencyService.ConvertFromPrimaryStoreCurrency(item.UnitPrice, usdCurrency);
-                item.UnitPrice = Math.Round(usdPrice, 2);
-            }
-
-            //set amount
-            taxAmount = _currencyService.ConvertFromPrimaryStoreCurrency(taxAmount, usdCurrency);
-            qualpayRequest.TaxAmount = Math.Round(taxAmount, 2);
+            //set item lines
+            transactionRequest.Items = GetItems(customer, processPaymentRequest.StoreId, processPaymentRequest.OrderTotal, out decimal taxAmount);
 
             //parse custom values
             var useStoredCardKey = _localizationService.GetResource("Plugins.Payments.Qualpay.UseStoredCard");
@@ -232,48 +224,43 @@ namespace Nop.Plugin.Payments.Qualpay
             if (useStoredCard)
             {
                 //customer has stored card and want to use it
-                qualpayRequest.CardId = cardId;
+                transactionRequest.CardId = cardId;
             }
             else
             {
                 //or he sets card details
-                qualpayRequest.CardholderName = processPaymentRequest.CreditCardName;
-                qualpayRequest.CardNumber = processPaymentRequest.CreditCardNumber;
-                qualpayRequest.Cvv2 = processPaymentRequest.CreditCardCvv2;
-                qualpayRequest.ExpirationDate = $"{processPaymentRequest.CreditCardExpireMonth:D2}{processPaymentRequest.CreditCardExpireYear.ToString().Substring(2)}";
-                //set billing address, max length is 20
-                qualpayRequest.AvsAddress = CommonHelper.EnsureMaximumLength(customer.BillingAddress?.Address1, 20);
-                qualpayRequest.AvsZipCode = customer.BillingAddress?.ZipPostalCode;
+                transactionRequest.CardholderName = processPaymentRequest.CreditCardName;
+                transactionRequest.CardNumber = processPaymentRequest.CreditCardNumber;
+                transactionRequest.Cvv2 = processPaymentRequest.CreditCardCvv2;
+                transactionRequest.ExpirationDate = $"{processPaymentRequest.CreditCardExpireMonth:D2}{processPaymentRequest.CreditCardExpireYear.ToString().Substring(2)}";
+                transactionRequest.AvsAddress = CommonHelper.EnsureMaximumLength(customer.BillingAddress?.Address1, 20);
+                transactionRequest.AvsZip = customer.BillingAddress?.ZipPostalCode;
 
                 //save or update credit card details in Qualpay Vault
                 if (saveCard)
                 {
-                    qualpayRequest.IsTokenize = true;
+                    transactionRequest.IsTokenize = true;
 
                     //and customer details if not exist
                     if (string.IsNullOrEmpty(cardId))
                     {
-                        qualpayRequest.CustomerId = customer.Id.ToString();
-                        qualpayRequest.Customer = new Customer
+                        transactionRequest.CustomerId = customer.Id.ToString();
+                        transactionRequest.Customer = new PaymentGatewayCustomer
                         {
-                            CustomerEmail = customer.BillingAddress?.Email,
-                            CustomerFirstName = customer.BillingAddress?.FirstName,
-                            CustomerLastName = customer.BillingAddress?.LastName,
-                            CustomerPhone = customer.BillingAddress?.PhoneNumber
+                            Email = customer.BillingAddress?.Email,
+                            FirstName = customer.BillingAddress?.FirstName,
+                            LastName = customer.BillingAddress?.LastName,
+                            Phone = customer.BillingAddress?.PhoneNumber
                         };
                     }
                 }
             }
 
             //get response
-            var response = QualpayHelper.PostRequest(qualpayRequest, 
-                _qualpaySettings.PaymentTransactionType, null, _qualpaySettings, _logger);
-            if (response == null)
-                return new ProcessPaymentResult { Errors = new[] { "Qualpay Payment Gateway error" } };
-
-            //request failed
-            if (response.ResponseCode != ResponseCode.Success)
-                return new ProcessPaymentResult { Errors = new[] { response.ResponseMessage } };
+            var response = 
+                _qualpaySettings.PaymentTransactionType == TransactionType.Authorization ? _qualpayManager.Authorize(transactionRequest) :
+                _qualpaySettings.PaymentTransactionType == TransactionType.Sale ? _qualpayManager.Sale(transactionRequest) : 
+                throw new NopException("Request type is not supported");
 
             //request succeeded
             var result = new ProcessPaymentResult
@@ -282,16 +269,16 @@ namespace Nop.Plugin.Payments.Qualpay
                 AuthorizationTransactionCode = response.AuthorizationCode
             };
 
-            //set authorization details
-            if (_qualpaySettings.PaymentTransactionType == QualpayRequestType.Authorization)
+            //set an authorization details
+            if (_qualpaySettings.PaymentTransactionType == TransactionType.Authorization)
             {
                 result.AuthorizationTransactionId = response.TransactionId;
                 result.AuthorizationTransactionResult = response.ResponseMessage;
                 result.NewPaymentStatus = PaymentStatus.Authorized;
             }
 
-            //or capture details
-            if (_qualpaySettings.PaymentTransactionType == QualpayRequestType.Sale)
+            //or set a capture details
+            if (_qualpaySettings.PaymentTransactionType == TransactionType.Sale)
             {   
                 result.CaptureTransactionId = response.TransactionId;
                 result.CaptureTransactionResult = response.ResponseMessage;
@@ -347,37 +334,20 @@ namespace Nop.Plugin.Payments.Qualpay
         /// <returns>Capture payment result</returns>
         public CapturePaymentResult Capture(CapturePaymentRequest capturePaymentRequest)
         {
-            var usdCurrency = _currencyService.GetCurrencyByCode("USD");
-            if (usdCurrency == null)
-                throw new NopException("USD currency cannot be loaded");
-
-            //create request
-            var qualpayRequest = new QualpayRequest();
-
-            //capture full amount of the authorization 
-            var amount = _currencyService.ConvertFromPrimaryStoreCurrency(capturePaymentRequest.Order.OrderTotal, usdCurrency);
-            qualpayRequest.Amount = Math.Round(amount, 2);
-            qualpayRequest.CurrencyIsoCode = 840; // numeric ISO code of USD
-
-            //get response
-            var response = QualpayHelper.PostRequest(qualpayRequest, QualpayRequestType.Capture, 
-                capturePaymentRequest.Order.AuthorizationTransactionId, _qualpaySettings, _logger);
-            if (response == null)
-                return new CapturePaymentResult { Errors = new[] { "Qualpay Payment Gateway error" } };
-
-            //request failed
-            if (response.ResponseCode != ResponseCode.Success)
-                return new CapturePaymentResult { Errors = new[] { response.ResponseMessage } };
+            //capture full amount of the authorized transaction
+            var captureResponse = _qualpayManager.CaptureTransaction(new CaptureRequest
+            {
+                TransactionId = capturePaymentRequest.Order.AuthorizationTransactionId,
+                Amount = Math.Round(capturePaymentRequest.Order.OrderTotal, 2)
+            });
 
             //request succeeded
-            var result = new CapturePaymentResult
+            return new CapturePaymentResult
             {
-                CaptureTransactionId = response.TransactionId,
-                CaptureTransactionResult = response.ResponseMessage,
+                CaptureTransactionId = captureResponse.TransactionId,
+                CaptureTransactionResult = captureResponse.ResponseMessage,
                 NewPaymentStatus = PaymentStatus.Paid
             };
-
-            return result;
         }
 
         /// <summary>
@@ -387,35 +357,18 @@ namespace Nop.Plugin.Payments.Qualpay
         /// <returns>Result</returns>
         public RefundPaymentResult Refund(RefundPaymentRequest refundPaymentRequest)
         {
-            var usdCurrency = _currencyService.GetCurrencyByCode("USD");
-            if (usdCurrency == null)
-                throw new NopException("USD currency cannot be loaded");
-
-            //create request
-            var qualpayRequest = new QualpayRequest();
-
-            //set amount in USD
-            var amount = _currencyService.ConvertFromPrimaryStoreCurrency(refundPaymentRequest.AmountToRefund, usdCurrency);
-            qualpayRequest.Amount = Math.Round(amount, 2);
-            qualpayRequest.CurrencyIsoCode = 840; // numeric ISO code of USD
-
-            //get response
-            var response = QualpayHelper.PostRequest(qualpayRequest, QualpayRequestType.Refund,
-                refundPaymentRequest.Order.CaptureTransactionId, _qualpaySettings, _logger);
-            if (response == null)
-                return new RefundPaymentResult { Errors = new[] { "Qualpay Payment Gateway error" } };
-
-            //request failed
-            if (response.ResponseCode != ResponseCode.Success)
-                return new RefundPaymentResult { Errors = new[] { response.ResponseMessage } };
+            //refund full or partial amount of the captured transaction
+            var refundResponse = _qualpayManager.Refund(new RefundRequest
+            {
+                TransactionId = refundPaymentRequest.Order.CaptureTransactionId,
+                Amount = Math.Round(refundPaymentRequest.AmountToRefund, 2)
+            });
 
             //request succeeded
-            var result = new RefundPaymentResult
+            return new RefundPaymentResult
             {
-                NewPaymentStatus = PaymentStatus.PartiallyRefunded
+                NewPaymentStatus = refundPaymentRequest.IsPartialRefund ? PaymentStatus.PartiallyRefunded : PaymentStatus.Refunded
             };
-
-            return result;
         }
 
         /// <summary>
@@ -425,35 +378,17 @@ namespace Nop.Plugin.Payments.Qualpay
         /// <returns>Result</returns>
         public VoidPaymentResult Void(VoidPaymentRequest voidPaymentRequest)
         {
-            var usdCurrency = _currencyService.GetCurrencyByCode("USD");
-            if (usdCurrency == null)
-                throw new NopException("USD currency cannot be loaded");
-
-            //create request
-            var qualpayRequest = new QualpayRequest();
-
-            //set amount in USD
-            var amount = _currencyService.ConvertFromPrimaryStoreCurrency(voidPaymentRequest.Order.OrderTotal, usdCurrency);
-            qualpayRequest.Amount = Math.Round(amount, 2);
-            qualpayRequest.CurrencyIsoCode = 840; // numeric ISO code of USD
-
-            //get response
-            var response = QualpayHelper.PostRequest(qualpayRequest, QualpayRequestType.Void,
-                voidPaymentRequest.Order.AuthorizationTransactionId, _qualpaySettings, _logger);
-            if (response == null)
-                return new VoidPaymentResult { Errors = new[] { "Qualpay Payment Gateway error" } };
-
-            //request failed
-            if (response.ResponseCode != ResponseCode.Success)
-                return new VoidPaymentResult { Errors = new[] { response.ResponseMessage } };
+            //void full amount of the authorized transaction
+            var voidResponse = _qualpayManager.VoidTransaction(new VoidRequest
+            {
+                TransactionId = voidPaymentRequest.Order.AuthorizationTransactionId
+            });
 
             //request succeeded
-            var result = new VoidPaymentResult
+            return new VoidPaymentResult
             {
                 NewPaymentStatus = PaymentStatus.Voided
             };
-
-            return result;
         }
 
         /// <summary>
@@ -494,16 +429,11 @@ namespace Nop.Plugin.Payments.Qualpay
             return true;
         }
 
-        public override string GetConfigurationPageUrl()
-        {
-            return $"{_webHelper.GetStoreLocation()}Admin/Qualpay/Configure";
-        }
-
-        public void GetPublicViewComponent(out string viewComponentName)
-        {
-            viewComponentName = "Qualpay";
-        }
-
+        /// <summary>
+        /// Validate payment form
+        /// </summary>
+        /// <param name="form">The parsed form values</param>
+        /// <returns>List of validating errors</returns>
         public IList<string> ValidatePaymentForm(IFormCollection form)
         {
             var warnings = new List<string>();
@@ -532,6 +462,11 @@ namespace Nop.Plugin.Payments.Qualpay
             return warnings;
         }
 
+        /// <summary>
+        /// Get payment information
+        /// </summary>
+        /// <param name="form">The parsed form values</param>
+        /// <returns>Payment info holder</returns>
         public ProcessPaymentRequest GetPaymentInfo(IFormCollection form)
         {
             var paymentRequest = new ProcessPaymentRequest
@@ -554,14 +489,22 @@ namespace Nop.Plugin.Payments.Qualpay
         }
 
         /// <summary>
-        /// Get type of the controller
+        /// Gets a configuration page URL
         /// </summary>
-        /// <returns>Controller type</returns>
-        public Type GetControllerType()
+        public override string GetConfigurationPageUrl()
         {
-            return typeof(QualpayController);
+            return $"{_webHelper.GetStoreLocation()}Admin/Qualpay/Configure";
         }
 
+        /// <summary>
+        /// Gets a view component for displaying plugin in public store ("payment info" checkout step)
+        /// </summary>
+        /// <param name="viewComponentName">View component name</param>
+        public void GetPublicViewComponent(out string viewComponentName)
+        {
+            viewComponentName = QualpayDefaults.ViewComponentName;
+        }
+        
         /// <summary>
         /// Install the plugin
         /// </summary>
@@ -570,7 +513,8 @@ namespace Nop.Plugin.Payments.Qualpay
             //settings
             _settingService.SaveSetting(new QualpaySettings
             {
-                UseSandbox = true
+                UseSandbox = true,
+                PaymentTransactionType = TransactionType.Sale
             });
 
             //locales
@@ -621,6 +565,7 @@ namespace Nop.Plugin.Payments.Qualpay
             this.DeletePluginLocaleResource("Plugins.Payments.Qualpay.PaymentMethodDescription");
             this.DeletePluginLocaleResource("Plugins.Payments.Qualpay.SaveCardDetails");
             this.DeletePluginLocaleResource("Plugins.Payments.Qualpay.UseStoredCard");
+
             base.Uninstall();
         }
 

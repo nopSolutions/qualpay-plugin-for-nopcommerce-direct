@@ -1,19 +1,25 @@
 ﻿using System;
-using System.Linq;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Rendering;
 using Nop.Core;
+using Nop.Core.Domain.Customers;
 using Nop.Plugin.Payments.Qualpay.Models;
-using Nop.Web.Framework.Components;
 using Nop.Services.Common;
+using Nop.Web.Framework.Components;
 
 namespace Nop.Plugin.Payments.Qualpay.Components
 {
-    [ViewComponent(Name = "Qualpay")]
+    [ViewComponent(Name = QualpayDefaults.ViewComponentName)]
     public class QualpayViewComponent : NopViewComponent
     {
+        #region Fields
+
         private readonly IStoreContext _storeContext;
         private readonly IWorkContext _workContext;
+
+        #endregion
+
+        #region Ctor
 
         public QualpayViewComponent(IStoreContext storeContext, IWorkContext workContext)
         {
@@ -21,56 +27,37 @@ namespace Nop.Plugin.Payments.Qualpay.Components
             this._workContext = workContext;
         }
 
+        #endregion
+
+        #region Methods
+
         public IViewComponentResult Invoke()
         {
             var model = new PaymentInfoModel();
 
-            //years
+            //prepare years
             for (var i = 0; i < 15; i++)
             {
                 var year = (DateTime.Now.Year + i).ToString();
-                model.ExpireYears.Add(new SelectListItem
-                {
-                    Text = year,
-                    Value = year,
-                });
+                model.ExpireYears.Add(new SelectListItem { Text = year, Value = year, });
             }
 
-            //months
+            //prepare months
             for (var i = 1; i <= 12; i++)
             {
-                model.ExpireMonths.Add(new SelectListItem
-                {
-                    Text = i.ToString("D2"),
-                    Value = i.ToString(),
-                });
+                model.ExpireMonths.Add(new SelectListItem { Text = i.ToString("D2"), Value = i.ToString(), });
             }
-
-            //set postback values
-            model.CardholderName = Request.Form["CardholderName"];
-            model.CardNumber = Request.Form["CardNumber"];
-            model.CardCode = Request.Form["CardCode"];
-            var selectedMonth = model.ExpireMonths.FirstOrDefault(x => x.Value.Equals(Request.Form["ExpireMonth"], StringComparison.InvariantCultureIgnoreCase));
-            if (selectedMonth != null)
-                selectedMonth.Selected = true;
-            var selectedYear = model.ExpireYears.FirstOrDefault(x => x.Value.Equals(Request.Form["ExpireYear"], StringComparison.InvariantCultureIgnoreCase));
-            if (selectedYear != null)
-                selectedYear.Selected = true;
-
-            //whether to save card details in Qualpay Vault
-            var saveCardDetails = false;
-            if (Request.Form.Keys.Contains("SaveCardDetails"))
-                bool.TryParse(Request.Form["SaveCardDetails"][0], out saveCardDetails);
-            model.SaveCardDetails = saveCardDetails;
-
+            
+            //whether current customer is guest
+            model.IsGuest = _workContext.CurrentCustomer.IsGuest();
+            
             //check whether customer already has stored card
-            var storedCardId = _workContext.CurrentCustomer.GetAttribute<string>("QualpayVaultCardId", _storeContext.CurrentStore.Id);
-            var useStoredId = !string.IsNullOrEmpty(storedCardId);
-            if (Request.Form.Keys.Contains("UseStoredCard"))
-                bool.TryParse(Request.Form["UseStoredCard"][0], out useStoredId);
-            model.UseStoredCard = useStoredId;
+            model.UseStoredCard = !model.IsGuest && 
+                !string.IsNullOrEmpty(_workContext.CurrentCustomer.GetAttribute<string>("QualpayVaultCardId", _storeContext.CurrentStore.Id));
 
             return View("~/Plugins/Payments.Qualpay/Views/PaymentInfo.cshtml", model);
         }
+
+        #endregion
     }
 }
