@@ -1,0 +1,133 @@
+﻿@model Nop.Plugin.Payments.Qualpay.Models.Customer.QualpayCustomerModel
+
+<div class="panel-group">
+    <div class="panel panel-default">
+        <div class="panel-body">
+        @if (!Model.CustomerExists)
+        {
+            <p>
+                @T("Plugins.Payments.Qualpay.Customer.NotExists")
+            </p>
+            <div class="form-group">
+                <div class="col-md-9 col-md-offset-3">
+                    <button type="button" id="qualpayCustomerCreate" class="btn btn-info">
+                        @T("Plugins.Payments.Qualpay.Customer.Create")
+                    </button>
+
+                    <script type="text/javascript">
+                        $(document).ready(function () {
+                            $('#qualpayCustomerCreate').click(function () {
+                                $('#qualpayCustomerCreate').prop('disabled', true);
+                                var postData = {
+                                    customerId: '@Model.Id'
+                                };
+                                addAntiForgeryToken(postData);
+                                $.ajax({
+                                    cache: false,
+                                    type: "POST",
+                                    url: "@(Url.Action("CreateQualpayCustomer"))",
+                                    data: postData,
+                                    success: function (data) {
+                                        location.reload();
+                                    },
+                                    error: function (jqXHR, textStatus, errorThrown) {
+                                        alert('Failed to create customer.');
+                                    },
+                                    complete: function (jqXHR, textStatus) {
+                                        $('#qualpayCustomerCreate').prop('disabled', false);
+                                    }
+                                });
+                            });
+                        });
+                    </script>
+                </div>
+            </div>
+        }
+        else
+        {
+            <div class="form-group">
+                <div class="col-md-3">
+                    <nop-label asp-for="QualpayCustomerId"/>
+                </div>
+                <div class="col-md-9">
+                    <div class="form-text-row">@Model.QualpayCustomerId</div>
+                </div>
+            </div>
+        }
+        </div>
+
+    @if (Model.CustomerExists)
+    {
+        <div class="panel-body">
+            <div id="qualpay-customer-cards-grid"></div>
+
+            <script type="text/javascript">
+                $(document).ready(function () {
+                    $("#qualpay-customer-cards-grid").kendoGrid({
+                        dataSource: {
+                            type: "json",
+                            transport: {
+                                read: {
+                                    url: "@Html.Raw(Url.Action("QualpayCustomerCardList", new { customerId = Model.Id }))",
+                                    type: "POST",
+                                    dataType: "json",
+                                    data: addAntiForgeryToken
+                                },
+                                destroy: {
+                                    url: "@Html.Raw(Url.Action("QualpayCustomerCardDelete", new { customerId = Model.Id }))",
+                                    type: "POST",
+                                    dataType: "json",
+                                    data: addAntiForgeryToken
+                                }
+                            },
+                            schema: {
+                                data: "Data",
+                                total: "Total",
+                                errors: "Errors",
+                                model: {
+                                    id: "Id"
+                                }
+                            },
+                            error: function(e) {
+                                display_kendoui_grid_error(e);
+                                this.cancelChanges();
+                            },
+                            serverPaging: true,
+                            serverFiltering: true,
+                            serverSorting: true
+                        },
+                        editable: {
+                            confirmation: "@T("Admin.Common.DeleteConfirmation")",
+                            mode: "inline"
+                        },
+                        scrollable: false,
+                        columns: [
+                        {
+                            field: "CardId",
+                            title: "@T("Plugins.Payments.Qualpay.Customer.Card.Id")",
+                            width: 200
+                        }, {
+                            field: "CardType",
+                            title: "@T("Plugins.Payments.Qualpay.Customer.Card.Type")",
+                            width: 150
+                        }, {
+                            field: "MaskedNumber",
+                            title: "@T("Plugins.Payments.Qualpay.Customer.Card.MaskedNumber")"
+                        }, {
+                            field: "ExpirationDate",
+                            title: "@T("Plugins.Payments.Qualpay.Customer.Card.ExpirationDate")",
+                            width: 100
+                        }, {
+                            command: { name: "destroy", text: "@T("Admin.Common.Delete")" },
+                            title: "@T("Admin.Common.Delete")",
+                            width: 100,
+                            headerAttributes: { style: "text-align:center" },
+                            attributes: { style: "text-align:center" }
+                        }]
+                    });
+                });
+            </script>
+        </div>
+    }
+    </div>
+</div>

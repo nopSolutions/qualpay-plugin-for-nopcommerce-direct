@@ -38,7 +38,7 @@ namespace Nop.Plugin.Payments.Qualpay.Domain.PaymentGateway
         /// Gets or sets the Mail Order Telephone Order (MOTO) transaction type.
         /// </summary>
         [JsonProperty(PropertyName = "moto_ecomm_ind")]
-        public MotoTransactionType MotoTransactionType { get; set; }
+        public MotoTransactionType? MotoTransactionType { get; set; }
 
         #endregion
 

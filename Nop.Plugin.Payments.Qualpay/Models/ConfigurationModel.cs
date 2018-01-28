@@ -1,4 +1,5 @@
 ﻿using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations;
 using Microsoft.AspNetCore.Mvc.Rendering;
 using Nop.Web.Framework.Mvc.ModelBinding;
 using Nop.Web.Framework.Mvc.Models;
@@ -27,13 +28,15 @@ namespace Nop.Plugin.Payments.Qualpay.Models
         public string MerchantId { get; set; }
 
         [NopResourceDisplayName("Plugins.Payments.Qualpay.Fields.SecurityKey")]
+        [DataType(DataType.Password)]
+        [NoTrim]
         public string SecurityKey { get; set; }
         public bool SecurityKey_OverrideForStore { get; set; }
 
         [NopResourceDisplayName("Plugins.Payments.Qualpay.Fields.UseSandbox")]
         public bool UseSandbox { get; set; }
         public bool UseSandbox_OverrideForStore { get; set; }
-
+        
         public int PaymentTransactionTypeId { get; set; }
         public bool PaymentTransactionTypeId_OverrideForStore { get; set; }
         [NopResourceDisplayName("Plugins.Payments.Qualpay.Fields.PaymentTransactionType")]

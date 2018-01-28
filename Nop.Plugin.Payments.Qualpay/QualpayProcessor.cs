@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.Primitives;
 using Nop.Core;
 using Nop.Core.Domain.Customers;
 using Nop.Core.Domain.Directory;
@@ -10,6 +11,7 @@ using Nop.Core.Domain.Payments;
 using Nop.Core.Plugins;
 using Nop.Plugin.Payments.Qualpay.Domain;
 using Nop.Plugin.Payments.Qualpay.Domain.PaymentGateway;
+using Nop.Plugin.Payments.Qualpay.Domain.Platform;
 using Nop.Plugin.Payments.Qualpay.Models;
 using Nop.Plugin.Payments.Qualpay.Services;
 using Nop.Plugin.Payments.Qualpay.Validators;
@@ -180,6 +182,120 @@ namespace Nop.Plugin.Payments.Qualpay
             };
         }
 
+        /// <summary>
+        /// Get request parameters to create a customer in Vault
+        /// </summary>
+        /// <param name="customer">Customer</param>
+        /// <returns>Request parameters to create customer</returns>
+        private CreateCustomerRequest CreateCustomerRequest(Customer customer)
+        {
+            return new CreateCustomerRequest
+            {
+                CustomerId = customer.Id.ToString(),
+                Email = customer.Email,
+                FirstName = customer.GetAttribute<string>(SystemCustomerAttributeNames.FirstName),
+                LastName = customer.GetAttribute<string>(SystemCustomerAttributeNames.LastName),
+                Company = customer.GetAttribute<string>(SystemCustomerAttributeNames.Company),
+                Phone = customer.GetAttribute<string>(SystemCustomerAttributeNames.Phone),
+                ShippingAddresses = customer.ShippingAddress == null ? null : new List<Domain.Platform.ShippingAddress>
+                {
+                    new Domain.Platform.ShippingAddress
+                    {
+                        IsPrimary = true,
+                        FirstName = customer.ShippingAddress.FirstName,
+                        LastName = customer.ShippingAddress.LastName,
+                        Address1 = customer.ShippingAddress?.Address1,
+                        Address2 = customer.ShippingAddress.Address2,
+                        City = customer.ShippingAddress?.City,
+                        StateCode = customer.ShippingAddress?.StateProvince?.Abbreviation,
+                        CountryName = customer.ShippingAddress?.Country?.ThreeLetterIsoCode,
+                        Zip = customer.ShippingAddress?.ZipPostalCode,
+                        Company = customer.ShippingAddress?.Company
+                    }
+                }
+            };
+        }
+
+        private TransactionRequest CreateTransactionRequest(ProcessPaymentRequest processPaymentRequest)
+        {
+            var customer = _customerService.GetCustomerById(processPaymentRequest.CustomerId)
+                ?? throw new NopException("Customer cannot be loaded");
+
+            //Qualpay Payment Gateway supports only USD currency
+            var primaryStoreCurrency = _currencyService.GetCurrencyById(_currencySettings.PrimaryStoreCurrencyId);
+            if (!primaryStoreCurrency.CurrencyCode.Equals("USD", StringComparison.InvariantCultureIgnoreCase))
+                throw new NopException("USD is not primary store currency");
+
+            var transactionRequest = new TransactionRequest
+            {
+                //set order number, max length is 25 
+                PurchaseId = CommonHelper.EnsureMaximumLength(processPaymentRequest.OrderGuid.ToString(), 25),
+                Amount = Math.Round(processPaymentRequest.OrderTotal, 2),
+                CurrencyIsoCode = QualpayDefaults.UsdNumericIsoCode,
+                SendEmailReceipt = !string.IsNullOrEmpty(customer.BillingAddress?.Email),
+                CustomerEmail = customer.BillingAddress?.Email,
+                Items = GetItems(customer, processPaymentRequest.StoreId, processPaymentRequest.OrderTotal, out decimal taxAmount),
+                AmountTax = (double)Math.Round(taxAmount, 2)
+            };
+
+            //whether the customer has chosen a previously saved card
+            if (processPaymentRequest.CustomValues.TryGetValue(_localizationService.GetResource("Plugins.Payments.Qualpay.Customer.Card.Id"), out object cardId))
+            {
+                //ensure that customer exists in Vault and has this card
+                try
+                {
+                    var cardExists = _qualpayManager.GetCustomerCards(customer.Id.ToString())
+                        ?.VaultCustomer?.BillingCards?.Any(card => card?.CardId?.Equals(cardId.ToString()) ?? false) ?? false;
+                    if (!cardExists)
+                        throw new Exception();
+                }
+                catch
+                {
+                    throw new NopException("Qualpay Payment Gateway error: Failed to pay by the selected card.");
+                }
+
+                //card exists, set it to the request parameters
+                transactionRequest.CardId = cardId.ToString();
+                transactionRequest.CustomerId = customer.Id.ToString();
+
+                return transactionRequest;
+            }
+
+            //set card details to the request parameters
+            transactionRequest.CardholderName = processPaymentRequest.CreditCardName;
+            transactionRequest.CardNumber = processPaymentRequest.CreditCardNumber;
+            transactionRequest.Cvv2 = processPaymentRequest.CreditCardCvv2;
+            transactionRequest.ExpirationDate = $"{processPaymentRequest.CreditCardExpireMonth:D2}{processPaymentRequest.CreditCardExpireYear.ToString().Substring(2)}";
+            transactionRequest.AvsAddress = CommonHelper.EnsureMaximumLength(customer.BillingAddress?.Address1, 20);
+            transactionRequest.AvsZip = customer.BillingAddress?.ZipPostalCode;
+
+            //whether the customer has chosen to save card details for the future using
+            var saveCardKey = _localizationService.GetResource("Plugins.Payments.Qualpay.Customer.Card.Save");
+            var saveCard = processPaymentRequest.CustomValues.ContainsKey(saveCardKey);
+            if (!saveCard)
+                return transactionRequest;
+
+            //remove the value from payment custom values, since it is no longer needed
+            processPaymentRequest.CustomValues.Remove(saveCardKey);
+            
+            //check whether customer is already exists in the Vault and try to create if does not exist
+            try
+            {
+                var vaultCustomer = _qualpayManager.GetCustomerById(customer.Id.ToString())?.VaultCustomer
+                    ?? _qualpayManager.CreateCustomer(CreateCustomerRequest(customer))?.VaultCustomer
+                    ?? throw new Exception();
+            }
+            catch
+            {
+                throw new NopException("Qualpay Customer Vault error: Failed to create customer.");
+            }
+
+            transactionRequest.IsTokenize = true;
+            transactionRequest.CustomerId = customer.Id.ToString();
+
+            return transactionRequest;
+        }
+
         #endregion
 
         #region Methods
@@ -191,70 +307,8 @@ namespace Nop.Plugin.Payments.Qualpay
         /// <returns>Process payment result</returns>
         public ProcessPaymentResult ProcessPayment(ProcessPaymentRequest processPaymentRequest)
         {
-            var customer = _customerService.GetCustomerById(processPaymentRequest.CustomerId)
-                ?? throw new NopException("Customer cannot be loaded");
-
-            //Qualpay Payment Gateway supports only USD currency
-            var primaryStoreCurrency = _currencyService.GetCurrencyById(_currencySettings.PrimaryStoreCurrencyId);
-            if (!primaryStoreCurrency.CurrencyCode.Equals("USD", StringComparison.InvariantCultureIgnoreCase))
-                throw new NopException("USD is not primary store currency");
-
             //create request
-            var transactionRequest = new TransactionRequest
-            {
-                //set order number, max length is 25 
-                PurchaseId = CommonHelper.EnsureMaximumLength(processPaymentRequest.OrderGuid.ToString(), 25),
-                Amount = Math.Round(processPaymentRequest.OrderTotal, 2),
-                CurrencyIsoCode = QualpayDefaults.UsdNumericIsoCode
-            };
-
-            //set item lines
-            transactionRequest.Items = GetItems(customer, processPaymentRequest.StoreId, processPaymentRequest.OrderTotal, out decimal taxAmount);
-
-            //parse custom values
-            var useStoredCardKey = _localizationService.GetResource("Plugins.Payments.Qualpay.UseStoredCard");
-            var useStoredCard = processPaymentRequest.CustomValues.ContainsKey(useStoredCardKey) &&
-                Convert.ToBoolean(processPaymentRequest.CustomValues[useStoredCardKey]);
-
-            var saveCardKey = _localizationService.GetResource("Plugins.Payments.Qualpay.SaveCardDetails");
-            var saveCard = processPaymentRequest.CustomValues.ContainsKey(saveCardKey) &&
-                Convert.ToBoolean(processPaymentRequest.CustomValues[saveCardKey]);
-
-            var cardId = customer.GetAttribute<string>("QualpayVaultCardId", _genericAttributeService, processPaymentRequest.StoreId);
-            if (useStoredCard)
-            {
-                //customer has stored card and want to use it
-                transactionRequest.CardId = cardId;
-            }
-            else
-            {
-                //or he sets card details
-                transactionRequest.CardholderName = processPaymentRequest.CreditCardName;
-                transactionRequest.CardNumber = processPaymentRequest.CreditCardNumber;
-                transactionRequest.Cvv2 = processPaymentRequest.CreditCardCvv2;
-                transactionRequest.ExpirationDate = $"{processPaymentRequest.CreditCardExpireMonth:D2}{processPaymentRequest.CreditCardExpireYear.ToString().Substring(2)}";
-                transactionRequest.AvsAddress = CommonHelper.EnsureMaximumLength(customer.BillingAddress?.Address1, 20);
-                transactionRequest.AvsZip = customer.BillingAddress?.ZipPostalCode;
-
-                //save or update credit card details in Qualpay Vault
-                if (saveCard)
-                {
-                    transactionRequest.IsTokenize = true;
-
-                    //and customer details if not exist
-                    if (string.IsNullOrEmpty(cardId))
-                    {
-                        transactionRequest.CustomerId = customer.Id.ToString();
-                        transactionRequest.Customer = new PaymentGatewayCustomer
-                        {
-                            Email = customer.BillingAddress?.Email,
-                            FirstName = customer.BillingAddress?.FirstName,
-                            LastName = customer.BillingAddress?.LastName,
-                            Phone = customer.BillingAddress?.PhoneNumber
-                        };
-                    }
-                }
-            }
+            var transactionRequest = CreateTransactionRequest(processPaymentRequest);
 
             //get response
             var response = 
@@ -266,6 +320,7 @@ namespace Nop.Plugin.Payments.Qualpay
             var result = new ProcessPaymentResult
             {
                 AvsResult = response.AvsResult,
+                Cvv2Result = response.Cvv2Result,
                 AuthorizationTransactionCode = response.AuthorizationCode
             };
 
@@ -273,7 +328,7 @@ namespace Nop.Plugin.Payments.Qualpay
             if (_qualpaySettings.PaymentTransactionType == TransactionType.Authorization)
             {
                 result.AuthorizationTransactionId = response.TransactionId;
-                result.AuthorizationTransactionResult = response.ResponseMessage;
+                result.AuthorizationTransactionResult = response.Message;
                 result.NewPaymentStatus = PaymentStatus.Authorized;
             }
 
@@ -281,14 +336,10 @@ namespace Nop.Plugin.Payments.Qualpay
             if (_qualpaySettings.PaymentTransactionType == TransactionType.Sale)
             {   
                 result.CaptureTransactionId = response.TransactionId;
-                result.CaptureTransactionResult = response.ResponseMessage;
+                result.CaptureTransactionResult = response.Message;
                 result.NewPaymentStatus = PaymentStatus.Paid;
             }
-
-            //save Qualpay Vault card ID
-            if (saveCard)
-                _genericAttributeService.SaveAttribute(customer, "QualpayVaultCardId", response.CardId, processPaymentRequest.StoreId);
-
+            
             return result;
         }
 
@@ -345,7 +396,7 @@ namespace Nop.Plugin.Payments.Qualpay
             return new CapturePaymentResult
             {
                 CaptureTransactionId = captureResponse.TransactionId,
-                CaptureTransactionResult = captureResponse.ResponseMessage,
+                CaptureTransactionResult = captureResponse.Message,
                 NewPaymentStatus = PaymentStatus.Paid
             };
         }
@@ -436,30 +487,25 @@ namespace Nop.Plugin.Payments.Qualpay
         /// <returns>List of validating errors</returns>
         public IList<string> ValidatePaymentForm(IFormCollection form)
         {
-            var warnings = new List<string>();
-
-            //validate
-            var validator = new PaymentInfoValidator(_localizationService);
-            var model = new PaymentInfoModel
+            if (form == null)
+                throw new ArgumentException(nameof(form));
+            
+            //validate payment info
+            var validationResult = new QualpayPaymentInfoValidator(_localizationService).Validate(new PaymentInfoModel
             {
                 CardholderName = form["CardholderName"],
                 CardNumber = form["CardNumber"],
                 CardCode = form["CardCode"],
                 ExpireMonth = form["ExpireMonth"],
-                ExpireYear = form["ExpireYear"]
-            };
-
-            //don't validate card details on using stored card
-            var useStoredCard = false;
-            if (form.Keys.Contains("UseStoredCard"))
-                bool.TryParse(form["UseStoredCard"][0], out useStoredCard);
-            model.UseStoredCard = useStoredCard;
-
-            var validationResult = validator.Validate(model);
+                ExpireYear = form["ExpireYear"],
+                BillingCardId = form["BillingCardId"],
+                SaveCardDetails = form.TryGetValue("SaveCardDetails", out StringValues saveCardDetails) &&
+                    bool.TryParse(saveCardDetails.FirstOrDefault(), out bool saveCard) && saveCard
+            });
             if (!validationResult.IsValid)
-                warnings.AddRange(validationResult.Errors.Select(error => error.ErrorMessage));
+                return validationResult.Errors.Select(error => error.ErrorMessage).ToList();
 
-            return warnings;
+            return new List<string>();
         }
 
         /// <summary>
@@ -469,6 +515,9 @@ namespace Nop.Plugin.Payments.Qualpay
         /// <returns>Payment info holder</returns>
         public ProcessPaymentRequest GetPaymentInfo(IFormCollection form)
         {
+            if (form == null)
+                throw new ArgumentException(nameof(form));
+
             var paymentRequest = new ProcessPaymentRequest
             {
                 CreditCardName = form["CardholderName"],
@@ -479,11 +528,13 @@ namespace Nop.Plugin.Payments.Qualpay
             };
 
             //pass custom values to payment processor
-            if (form.Keys.Contains("SaveCardDetails") && bool.TryParse(form["SaveCardDetails"][0], out bool saveCardDetails) && saveCardDetails)
-                paymentRequest.CustomValues.Add(_localizationService.GetResource("Plugins.Payments.Qualpay.SaveCardDetails"), true);
+            var cardId = form["BillingCardId"];
+            if (!StringValues.IsNullOrEmpty(cardId) && !cardId.FirstOrDefault().Equals(Guid.Empty.ToString()))
+                paymentRequest.CustomValues.Add(_localizationService.GetResource("Plugins.Payments.Qualpay.Customer.Card.Id"), cardId.FirstOrDefault());
 
-            if (form.Keys.Contains("UseStoredCard") && bool.TryParse(form["UseStoredCard"][0], out bool useStoredCard) && useStoredCard)
-                paymentRequest.CustomValues.Add(_localizationService.GetResource("Plugins.Payments.Qualpay.UseStoredCard"), true);
+            var saveCardDetails = form["SaveCardDetails"];
+            if (!StringValues.IsNullOrEmpty(saveCardDetails) && bool.TryParse(saveCardDetails.FirstOrDefault(), out bool saveCard) && saveCard)
+                paymentRequest.CustomValues.Add(_localizationService.GetResource("Plugins.Payments.Qualpay.Customer.Card.Save"), true);
 
             return paymentRequest;
         }

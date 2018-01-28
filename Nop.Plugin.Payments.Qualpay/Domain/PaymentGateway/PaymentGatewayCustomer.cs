@@ -92,7 +92,7 @@ namespace Nop.Plugin.Payments.Qualpay.Domain.PaymentGateway
         /// Gets or sets list of shipping addresses for customer.
         /// </summary>
         [JsonProperty(PropertyName = "shipping_addresses")]
-        public List<ShippingAddress> ShippingAddresses { get; set; }
+        public IEnumerable<ShippingAddress> ShippingAddresses { get; set; }
 
         #endregion
     }

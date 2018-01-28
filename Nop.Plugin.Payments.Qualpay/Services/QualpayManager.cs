@@ -6,6 +6,7 @@ using Newtonsoft.Json;
 using Nop.Core;
 using Nop.Plugin.Payments.Qualpay.Domain;
 using Nop.Plugin.Payments.Qualpay.Domain.PaymentGateway;
+using Nop.Plugin.Payments.Qualpay.Domain.Platform;
 using Nop.Services.Logging;
 
 namespace Nop.Plugin.Payments.Qualpay.Services
@@ -48,12 +49,32 @@ namespace Nop.Plugin.Payments.Qualpay.Services
         }
 
         /// <summary>
+        /// Process Qualpay Platform request
+        /// </summary>
+        /// <typeparam name="TRequest">Request type</typeparam>
+        /// <typeparam name="TResponse">Response type</typeparam>
+        /// <param name="platformRequest">Request</param>
+        /// <returns>Response</returns>
+        private TResponse ProcessPlatformRequest<TRequest, TResponse>(TRequest platformRequest)
+            where TRequest : PlatformRequest where TResponse : PlatformResponse
+        {
+            //process request
+            var response = ProcessRequest<TRequest, TResponse>(platformRequest)
+                ?? throw new NopException("An error occurred while processing. Error details in the log.");
+
+            //whether request is succeeded
+            if (response.ResponseCode != PlatformResponseCode.Success)
+                throw new NopException($"{response.ResponseCode}. {response.Message}");
+
+            return response;
+        }
+
+        /// <summary>
         /// Process Qualpay Payment Gateway request
         /// </summary>
         /// <typeparam name="TRequest">Request type</typeparam>
         /// <typeparam name="TResponse">Response type</typeparam>
         /// <param name="paymentGatewayRequest">Request</param>
-        /// <param name="transactionId">Transaction identifier</param>
         /// <returns>Response</returns>
         private TResponse ProcessPaymentGatewayRequest<TRequest, TResponse>(TRequest paymentGatewayRequest)
             where TRequest : PaymentGatewayRequest where TResponse : PaymentGatewayResponse
@@ -68,8 +89,8 @@ namespace Nop.Plugin.Payments.Qualpay.Services
                 ?? throw new NopException("An error occurred while processing. Error details in the log.");
 
             //whether request is succeeded
-            if (response.ResponseCode != ResponseCode.Success)
-                throw new NopException($"{response.ResponseCode}. {response.ResponseMessage}");
+            if (response.ResponseCode != PaymentGatewayResponseCode.Success)
+                throw new NopException($"{response.ResponseCode}. {response.Message}");
 
             return response;
         }
@@ -94,10 +115,10 @@ namespace Nop.Plugin.Payments.Qualpay.Services
             webRequest.UserAgent = QualpayDefaults.UserAgent;
             webRequest.Accept = "application/json";
             webRequest.ContentType = "application/json; charset=utf-8";
-
+            
             //add authorization header
-            var encodedSecurityKey = Convert.ToBase64String(Encoding.UTF8.GetBytes(_qualpaySettings.SecurityKey));
-            webRequest.Headers.Add(HttpRequestHeader.Authorization, $"Basic {encodedSecurityKey}:");
+            var encodedSecurityKey = Convert.ToBase64String(Encoding.UTF8.GetBytes($"{_qualpaySettings.SecurityKey}:"));
+            webRequest.Headers.Add(HttpRequestHeader.Authorization, $"Basic {encodedSecurityKey}");
 
             try
             {
@@ -150,7 +171,57 @@ namespace Nop.Plugin.Payments.Qualpay.Services
         #endregion
 
         #region Methods
+
+        #region Platform
+
+        /// <summary>
+        /// Get a customer from Qualpay Customer Vault by the passed identifier
+        /// </summary>
+        /// <param name="customerId">Customer identifier</param>
+        /// <returns>Response</returns>
+        public CustomerVaultResponse GetCustomerById(string customerId)
+        {
+            var getCustomerRequest = new GetCustomerRequest { CustomerId = customerId };
+            return ProcessPlatformRequest<GetCustomerRequest, CustomerVaultResponse>(getCustomerRequest);
+        }
+
+        /// <summary>
+        /// Create new customer in Qualpay Customer Vault
+        /// </summary>
+        /// <param name="createCustomerRequest">Request parameters to create customer</param>
+        /// <returns>Response</returns>
+        public CustomerVaultResponse CreateCustomer(CreateCustomerRequest createCustomerRequest)
+        {
+            return ProcessPlatformRequest<CreateCustomerRequest, CustomerVaultResponse>(createCustomerRequest);
+        }
+
+        /// <summary>
+        /// Get customer billing cards from Qualpay Customer Vault
+        /// </summary>
+        /// <param name="customerId">Customer identifier</param>
+        /// <returns>Response</returns>
+        public CustomerVaultResponse GetCustomerCards(string customerId)
+        {
+            var getCustomerCardsRequest = new GetCustomerCardsRequest { CustomerId = customerId };
+            return ProcessPlatformRequest<GetCustomerCardsRequest, CustomerVaultResponse>(getCustomerCardsRequest);
+        }
+
+        /// <summary>
+        /// Delete customer billing card from Qualpay Customer Vault
+        /// </summary>
+        /// <param name="customerId">Customer identifier</param>
+        /// <param name="cardId">Card identifier</param>
+        /// <returns>Response</returns>
+        public CustomerVaultResponse DeleteCustomerCard(string customerId, string cardId)
+        {
+            var deleteCustomerCardRequest = new DeleteCustomerCardRequest { CustomerId = customerId, CardId = cardId };
+            return ProcessPlatformRequest<DeleteCustomerCardRequest, CustomerVaultResponse>(deleteCustomerCardRequest);
+        }
         
+        #endregion
+
+        #region Payment Gateway
+
         /// <summary>
         /// Authorize a transaction
         /// </summary>
@@ -202,6 +273,8 @@ namespace Nop.Plugin.Payments.Qualpay.Services
         {
             return ProcessPaymentGatewayRequest<RefundRequest, RefundResponse>(refundRequest);
         }
+
+        #endregion
 
         #endregion
     }

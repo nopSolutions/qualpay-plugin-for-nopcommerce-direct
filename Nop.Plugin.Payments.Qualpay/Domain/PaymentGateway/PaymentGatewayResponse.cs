@@ -1,5 +1,6 @@
 ﻿using System.Collections.Generic;
 using Newtonsoft.Json;
+using Newtonsoft.Json.Converters;
 
 namespace Nop.Plugin.Payments.Qualpay.Domain.PaymentGateway
 {
@@ -20,13 +21,14 @@ namespace Nop.Plugin.Payments.Qualpay.Domain.PaymentGateway
         /// Gets or sets the response code from the Qualpay payment gateway
         /// </summary>
         [JsonProperty(PropertyName = "rcode")]
-        public ResponseCode ResponseCode { get; set; }
+        [JsonConverter(typeof(StringEnumConverter))]
+        public PaymentGatewayResponseCode? ResponseCode { get; set; }
 
         /// <summary>
         /// Gets or sets the response message text from the payment gateway application.
         /// </summary>
         [JsonProperty(PropertyName = "rmsg")]
-        public string ResponseMessage { get; set; }
+        public string Message { get; set; }
 
         /// <summary>
         /// Gets or sets a field is returned by the tokenize message or when an authorization or sale message requests tokenization of the cardholder data.

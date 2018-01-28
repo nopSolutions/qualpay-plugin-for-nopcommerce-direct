@@ -39,7 +39,7 @@ namespace Nop.Plugin.Payments.Qualpay.Domain.PaymentGateway
         /// </summary>
         [JsonProperty(PropertyName = "debit_credit_ind")]
         [JsonConverter(typeof(StringEnumConverter))]
-        public ItemCreditType CreditType { get; set; }
+        public ItemCreditType? CreditType { get; set; }
 
         /// <summary>
         /// Gets or sets the cost per unit

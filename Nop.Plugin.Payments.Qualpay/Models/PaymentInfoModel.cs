@@ -15,6 +15,7 @@ namespace Nop.Plugin.Payments.Qualpay.Models
         {
             ExpireMonths = new List<SelectListItem>();
             ExpireYears = new List<SelectListItem>();
+            BillingCards = new List<SelectListItem>();
         }
 
         #endregion
@@ -36,8 +37,9 @@ namespace Nop.Plugin.Payments.Qualpay.Models
         public IList<SelectListItem> ExpireYears { get; set; }
         
         public bool SaveCardDetails { get; set; }
-        
-        public bool UseStoredCard { get; set; }
+
+        public string BillingCardId { get; set; }
+        public IList<SelectListItem> BillingCards { get; set; }
 
         #endregion
     }

@@ -6,29 +6,30 @@
 
 <script>
     $(document).ready(function() {
-        $("#@Html.IdFor(model => model.UseStoredCard)").change(toggleUseStoredCard);
-        toggleUseStoredCard();
+        $("#@Html.IdFor(model => model.BillingCardId)").change(toggleBillingCard);
+        toggleBillingCard();
     });
-
-    function toggleUseStoredCard() {
-        if ($('#@Html.IdFor(model => model.UseStoredCard)').is(':checked')) {
-            $('#qualpay-card-details').hide();
-        } else {
+    
+    function toggleBillingCard() {
+        var selectedBillingCardId = $('#@Html.IdFor(model => model.BillingCardId)').val();
+        if (!selectedBillingCardId || selectedBillingCardId == '@Guid.Empty.ToString()') {
             $('#qualpay-card-details').show();
+        } else {
+            $('#qualpay-card-details').hide();
         }
     }
 </script>
 
-@if (!Model.IsGuest)
+@if (!Model.IsGuest && Model.BillingCards.Any())
 {
     <table width="100%" cellspacing="2" cellpadding="1" border="0">
         <tr>
             <td>
-                <label asp-for="UseStoredCard">@T("Plugins.Payments.Qualpay.UseStoredCard"):</label>
+                <label asp-for="BillingCardId">@T("Plugins.Payments.Qualpay.Customer.Card"):</label>
             </td>
             <td>
-                <input type="checkbox" asp-for="UseStoredCard" />
-                <span asp-validation-for="UseStoredCard"></span>
+                <select asp-for="BillingCardId" asp-items="Model.BillingCards" class="dropdownlists"></select>
+                <span asp-validation-for="BillingCardId"></span>
             </td>
         </tr>
     </table>
@@ -76,7 +77,7 @@
     {
         <tr>
             <td>
-                <label asp-for="SaveCardDetails">@T("Plugins.Payments.Qualpay.SaveCardDetails"):</label>
+                <label asp-for="SaveCardDetails">@T("Plugins.Payments.Qualpay.Customer.Card.Save"):</label>
             </td>
             <td>
                 <input type="checkbox" asp-for="SaveCardDetails" />
