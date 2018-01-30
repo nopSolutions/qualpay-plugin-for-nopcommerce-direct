@@ -78,12 +78,7 @@ namespace Nop.Plugin.Payments.Qualpay.Services
                 return;
 
             //try to get a customer from the Vault 
-            VaultCustomer vaultCustomer = null;
-            try
-            {
-                vaultCustomer = _qualpayManager.GetCustomerById(customer.Id.ToString())?.VaultCustomer;
-            }
-            catch { }
+            var vaultCustomer = _qualpayManager.GetCustomerById(customer.Id.ToString());
 
             //prepare model
             var model = new QualpayCustomerModel

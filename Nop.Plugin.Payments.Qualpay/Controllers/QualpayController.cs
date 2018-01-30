@@ -1,10 +1,15 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using System;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Rendering;
 using Nop.Core;
+using Nop.Core.Domain.Messages;
 using Nop.Plugin.Payments.Qualpay.Domain;
+using Nop.Plugin.Payments.Qualpay.Domain.Platform;
 using Nop.Plugin.Payments.Qualpay.Models;
+using Nop.Plugin.Payments.Qualpay.Services;
 using Nop.Services.Configuration;
 using Nop.Services.Localization;
+using Nop.Services.Messages;
 using Nop.Services.Security;
 using Nop.Services.Stores;
 using Nop.Web.Areas.Admin.Controllers;
@@ -15,27 +20,36 @@ namespace Nop.Plugin.Payments.Qualpay.Controllers
     {
         #region Fields
 
+        private readonly EmailAccountSettings _emailAccountSettings;
+        private readonly IEmailAccountService _emailAccountService;
         private readonly ILocalizationService _localizationService;
         private readonly IPermissionService _permissionService;
         private readonly ISettingService _settingService;
         private readonly IStoreService _storeService;
         private readonly IWorkContext _workContext;
+        private readonly QualpayManager _qualpayManager;
 
         #endregion
 
         #region Ctor
 
-        public QualpayController(ILocalizationService localizationService,
+        public QualpayController(EmailAccountSettings emailAccountSettings,
+            IEmailAccountService emailAccountService,
+            ILocalizationService localizationService,
             IPermissionService permissionService,
             ISettingService settingService,
             IStoreService storeService,
-            IWorkContext workContext)
+            IWorkContext workContext,
+            QualpayManager qualpayManager)
         {
+            this._emailAccountSettings = emailAccountSettings;
+            this._emailAccountService = emailAccountService;
             this._localizationService = localizationService;
             this._permissionService = permissionService;
             this._settingService = settingService;
             this._storeService = storeService;
             this._workContext = workContext;
+            this._qualpayManager = qualpayManager;
         }
 
         #endregion
@@ -118,12 +132,44 @@ namespace Nop.Plugin.Payments.Qualpay.Controllers
             _settingService.SaveSettingOverridablePerStore(settings, x => x.AdditionalFee, model.AdditionalFee_OverrideForStore, storeScope, false);
             _settingService.SaveSettingOverridablePerStore(settings, x => x.AdditionalFeePercentage, model.AdditionalFeePercentage_OverrideForStore, storeScope, false);
 
-            //now clear settings cache
+            //now clear settings cache and display notification
             _settingService.ClearCache();
-
             SuccessNotification(_localizationService.GetResource("Admin.Plugins.Saved"));
 
+            //ensure that webhook is already exists and create the new one if does not
+            var webhook = _qualpayManager.GetWebhook() ?? _qualpayManager.CreateWebhook(new CreateWebhookRequest
+            {
+                EmailAddress = new[] { _emailAccountService.GetEmailAccountById(_emailAccountSettings.DefaultEmailAccountId)?.Email },
+                Events = new[]
+                {
+                    QualpayDefaults.SubscriptionCompleteWebhookEvent,
+                    QualpayDefaults.SubscriptionPaymentFailureWebhookEvent,
+                    QualpayDefaults.SubscriptionPaymentSuccessWebhookEvent,
+                    QualpayDefaults.SubscriptionSuspendedWebhookEvent,
+                    QualpayDefaults.ValidateUrlWebhookEvent
+                },
+                Label = QualpayDefaults.WebhookLabel,
+                NotificationUrl = Url.RouteUrl(QualpayDefaults.WebhookRouteName, null, Uri.UriSchemeHttps),
+                Status = WebhookStatus.Active
+            });
+
+            if (webhook?.WebhookId != null)
+            {
+                settings.WebhookId = webhook.WebhookId.ToString();
+                _settingService.SaveSetting(settings, x => x.WebhookId, storeScope);
+            }
+            else
+                WarningNotification(_localizationService.GetResource("Plugins.Payments.Qualpay.Fields.Webhook.Warning"));
+
             return Configure();
+        }
+
+        [HttpPost]
+        public IActionResult WebhookHandler()
+        {
+            var isValid = _qualpayManager.ValidateWebhook(this.Request);
+
+            return Ok();
         }
 
         #endregion

@@ -64,14 +64,10 @@ namespace Nop.Plugin.Payments.Qualpay.Components
             if (!model.IsGuest)
             {
                 //try to get customer billing cards
-                try
-                {
-                    var vaultCustomer = _qualpayManager.GetCustomerCards(_workContext.CurrentCustomer.Id.ToString())?.VaultCustomer;
-                    model.BillingCards = vaultCustomer?.BillingCards?.Where(card => card != null)
-                        .Select(card => new SelectListItem { Text = card.CardNumber, Value = card.CardId }).ToList()
-                        ?? new List<SelectListItem>();
-                }
-                catch { }                
+                model.BillingCards = _qualpayManager.GetCustomerCards(_workContext.CurrentCustomer.Id.ToString())
+                    ?.Where(card => card != null)
+                    ?.Select(card => new SelectListItem { Text = card.CardNumber, Value = card.CardId }).ToList()
+                    ?? new List<SelectListItem>();         
 
                 //add the special item for 'select card' with empty GUID value 
                 if (model.BillingCards.Any())

@@ -91,17 +91,9 @@ namespace Nop.Plugin.Payments.Qualpay.Controllers
                 ?? throw new ArgumentException("No customer found with the specified id", nameof(customerId));
 
             //check whether customer is already exists in the Vault and try to create if does not exist
-            VaultCustomer vaultCustomer = null;
-            try
-            {
-                vaultCustomer = _qualpayManager.GetCustomerById(customer.Id.ToString())?.VaultCustomer;
-            }
-            catch { }
-            if (vaultCustomer == null)
-            {
-                vaultCustomer = _qualpayManager.CreateCustomer(CreateCustomerRequest(customer))?.VaultCustomer
-                    ?? throw new NopException("Qualpay Customer Vault error: Failed to create customer. Error details in the log");
-            }
+            var vaultCustomer = _qualpayManager.GetCustomerById(customer.Id.ToString())
+                ?? _qualpayManager.CreateCustomer(CreateCustomerRequest(customer))
+                ?? throw new NopException("Qualpay Customer Vault error: Failed to create customer. Error details in the log");
 
             //save selected tab
             SaveSelectedTabName();
@@ -120,13 +112,8 @@ namespace Nop.Plugin.Payments.Qualpay.Controllers
                 ?? throw new ArgumentException("No customer found with the specified id", nameof(customerId));
 
             //try to get customer billing cards details
-            var billingCards = new List<BillingCard>();
-            try
-            {
-                billingCards = _qualpayManager.GetCustomerCards(customer.Id.ToString())?.VaultCustomer?.BillingCards.ToList() 
-                    ?? new List<BillingCard>();
-            }
-            catch { }
+            var billingCards = _qualpayManager.GetCustomerCards(customer.Id.ToString())
+                ?.Where(card => card != null)?.ToList() ?? new List<BillingCard>();
 
             //prepare grid model
             var gridModel = new DataSourceResult
@@ -156,7 +143,8 @@ namespace Nop.Plugin.Payments.Qualpay.Controllers
                 ?? throw new ArgumentException("No customer found with the specified id", nameof(customerId));
 
             //try to delete selected card
-            _qualpayManager.DeleteCustomerCard(customer.Id.ToString(), id);
+            if (!_qualpayManager.DeleteCustomerCard(customer.Id.ToString(), id))
+                throw new NopException("Qualpay Customer Vault error: Failed to delete card. Error details in the log");
 
             return new NullJsonResult();
         }

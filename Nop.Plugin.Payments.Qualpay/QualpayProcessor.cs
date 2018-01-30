@@ -4,6 +4,7 @@ using System.Linq;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Primitives;
 using Nop.Core;
+using Nop.Core.Domain.Catalog;
 using Nop.Core.Domain.Customers;
 using Nop.Core.Domain.Directory;
 using Nop.Core.Domain.Orders;
@@ -182,40 +183,6 @@ namespace Nop.Plugin.Payments.Qualpay
             };
         }
 
-        /// <summary>
-        /// Get request parameters to create a customer in Vault
-        /// </summary>
-        /// <param name="customer">Customer</param>
-        /// <returns>Request parameters to create customer</returns>
-        private CreateCustomerRequest CreateCustomerRequest(Customer customer)
-        {
-            return new CreateCustomerRequest
-            {
-                CustomerId = customer.Id.ToString(),
-                Email = customer.Email,
-                FirstName = customer.GetAttribute<string>(SystemCustomerAttributeNames.FirstName),
-                LastName = customer.GetAttribute<string>(SystemCustomerAttributeNames.LastName),
-                Company = customer.GetAttribute<string>(SystemCustomerAttributeNames.Company),
-                Phone = customer.GetAttribute<string>(SystemCustomerAttributeNames.Phone),
-                ShippingAddresses = customer.ShippingAddress == null ? null : new List<Domain.Platform.ShippingAddress>
-                {
-                    new Domain.Platform.ShippingAddress
-                    {
-                        IsPrimary = true,
-                        FirstName = customer.ShippingAddress.FirstName,
-                        LastName = customer.ShippingAddress.LastName,
-                        Address1 = customer.ShippingAddress?.Address1,
-                        Address2 = customer.ShippingAddress.Address2,
-                        City = customer.ShippingAddress?.City,
-                        StateCode = customer.ShippingAddress?.StateProvince?.Abbreviation,
-                        CountryName = customer.ShippingAddress?.Country?.ThreeLetterIsoCode,
-                        Zip = customer.ShippingAddress?.ZipPostalCode,
-                        Company = customer.ShippingAddress?.Company
-                    }
-                }
-            };
-        }
-
         private TransactionRequest CreateTransactionRequest(ProcessPaymentRequest processPaymentRequest)
         {
             var customer = _customerService.GetCustomerById(processPaymentRequest.CustomerId)
@@ -242,17 +209,10 @@ namespace Nop.Plugin.Payments.Qualpay
             if (processPaymentRequest.CustomValues.TryGetValue(_localizationService.GetResource("Plugins.Payments.Qualpay.Customer.Card.Id"), out object cardId))
             {
                 //ensure that customer exists in Vault and has this card
-                try
-                {
-                    var cardExists = _qualpayManager.GetCustomerCards(customer.Id.ToString())
-                        ?.VaultCustomer?.BillingCards?.Any(card => card?.CardId?.Equals(cardId.ToString()) ?? false) ?? false;
-                    if (!cardExists)
-                        throw new Exception();
-                }
-                catch
-                {
+                var cardExists = _qualpayManager.GetCustomerCards(customer.Id.ToString())
+                    ?.Any(card => card?.CardId?.Equals(cardId.ToString()) ?? false) ?? false;
+                if (!cardExists)
                     throw new NopException("Qualpay Payment Gateway error: Failed to pay by the selected card.");
-                }
 
                 //card exists, set it to the request parameters
                 transactionRequest.CardId = cardId.ToString();
@@ -277,21 +237,44 @@ namespace Nop.Plugin.Payments.Qualpay
 
             //remove the value from payment custom values, since it is no longer needed
             processPaymentRequest.CustomValues.Remove(saveCardKey);
-            
-            //check whether customer is already exists in the Vault and try to create if does not exist
-            try
-            {
-                var vaultCustomer = _qualpayManager.GetCustomerById(customer.Id.ToString())?.VaultCustomer
-                    ?? _qualpayManager.CreateCustomer(CreateCustomerRequest(customer))?.VaultCustomer
-                    ?? throw new Exception();
-            }
-            catch
-            {
-                throw new NopException("Qualpay Customer Vault error: Failed to create customer.");
-            }
 
             transactionRequest.IsTokenize = true;
-            transactionRequest.CustomerId = customer.Id.ToString();
+
+            //check whether customer is already exists in the Vault and try to create if does not exist
+            var vaultCustomer = _qualpayManager.GetCustomerById(customer.Id.ToString());
+            if (vaultCustomer == null)
+            {
+                transactionRequest.CustomerId = customer.Id.ToString();
+                transactionRequest.Customer = new PaymentGatewayCustomer
+                {
+                    Email = customer.Email,
+                    BillingAddressAddress1 = customer.BillingAddress?.Address1,
+                    BillingAddressAddress2 = customer.BillingAddress?.Address2,
+                    BillingAddressCity = customer.BillingAddress?.City,
+                    BillingAddressCountryName = customer.BillingAddress?.Country?.ThreeLetterIsoCode,
+                    BillingAddressStateCode = customer.BillingAddress?.StateProvince?.Abbreviation,
+                    BillingAddressZip = customer.BillingAddress?.ZipPostalCode,
+                    FirstName = customer.GetAttribute<string>(SystemCustomerAttributeNames.FirstName),
+                    LastName = customer.GetAttribute<string>(SystemCustomerAttributeNames.LastName),
+                    Company = customer.GetAttribute<string>(SystemCustomerAttributeNames.Company),
+                    Phone = customer.GetAttribute<string>(SystemCustomerAttributeNames.Phone),
+                    ShippingAddresses = customer.ShippingAddress == null ? null : new List<Domain.PaymentGateway.ShippingAddress>
+                    {
+                        new Domain.PaymentGateway.ShippingAddress
+                        {
+                            FirstName = customer.ShippingAddress.FirstName,
+                            LastName = customer.ShippingAddress.LastName,
+                            Address1 = customer.ShippingAddress?.Address1,
+                            Address2 = customer.ShippingAddress.Address2,
+                            City = customer.ShippingAddress?.City,
+                            StateCode = customer.ShippingAddress?.StateProvince?.Abbreviation,
+                            CountryName = customer.ShippingAddress?.Country?.ThreeLetterIsoCode,
+                            Zip = customer.ShippingAddress?.ZipPostalCode,
+                            Company = customer.ShippingAddress?.Company
+                        }
+                    }
+                };
+            }
 
             return transactionRequest;
         }
@@ -339,7 +322,20 @@ namespace Nop.Plugin.Payments.Qualpay
                 result.CaptureTransactionResult = response.Message;
                 result.NewPaymentStatus = PaymentStatus.Paid;
             }
-            
+
+            //add tokenized billing card to customer
+            if (!string.IsNullOrEmpty(response.CardId))
+            {
+                var customer = _customerService.GetCustomerById(processPaymentRequest.CustomerId);
+                _qualpayManager.CreateCustomerCard(new CreateCustomerCardRequest
+                {
+                    CardId = response.CardId,
+                    CustomerId = customer.Id.ToString(),
+                    BillingZip = customer.BillingAddress?.ZipPostalCode,
+                    Verify = true
+                });
+            }
+
             return result;
         }
 
@@ -449,7 +445,60 @@ namespace Nop.Plugin.Payments.Qualpay
         /// <returns>Process payment result</returns>
         public ProcessPaymentResult ProcessRecurringPayment(ProcessPaymentRequest processPaymentRequest)
         {
-            return new ProcessPaymentResult { Errors = new[] { "Recurring payment not supported" } };
+            var customer = _customerService.GetCustomerById(processPaymentRequest.CustomerId)
+                ?? throw new NopException("Customer cannot be loaded");
+
+            //Qualpay Payment Gateway supports only USD currency
+            var primaryStoreCurrency = _currencyService.GetCurrencyById(_currencySettings.PrimaryStoreCurrencyId);
+            if (!primaryStoreCurrency.CurrencyCode.Equals("USD", StringComparison.InvariantCultureIgnoreCase))
+                throw new NopException("USD is not primary store currency");
+
+            if (processPaymentRequest.RecurringCycleLength != 1 || processPaymentRequest.RecurringCyclePeriod == RecurringProductCyclePeriod.Days)
+                throw new NopException("Qualpay Payment Gateway error: Recurring Billing supports payments with an interval of 1 (weekly, monthly, etc)");
+
+            //create subscription for recurring billing
+            var subscription = _qualpayManager.CreateSubscription(new CreateSubscriptionRequest
+            {
+                CurrencyIsoCode = QualpayDefaults.UsdNumericIsoCode,
+                CustomerFirstName = customer.BillingAddress?.FirstName,
+                CustomerLastName = customer.BillingAddress?.LastName,
+                CustomerId = customer.Id.ToString(),
+                DateStart = (processPaymentRequest.RecurringCyclePeriod == RecurringProductCyclePeriod.Weeks ? DateTime.UtcNow.AddDays(7)
+                    : processPaymentRequest.RecurringCyclePeriod == RecurringProductCyclePeriod.Months ? DateTime.UtcNow.AddMonths(1)
+                    : processPaymentRequest.RecurringCyclePeriod == RecurringProductCyclePeriod.Years ? DateTime.UtcNow.AddYears(1) : DateTime.UtcNow)
+                    .ToShortDateString(),
+                IsSubscriptionOnPlan = false,
+                PlanDescription = $"Recurring payment for the order #{processPaymentRequest.InitialOrderId}",
+                PlanFrequency = processPaymentRequest.RecurringCyclePeriod == RecurringProductCyclePeriod.Weeks ? PlanFrequency.Weekly
+                    : processPaymentRequest.RecurringCyclePeriod == RecurringProductCyclePeriod.Months ? PlanFrequency.Monthly 
+                    : processPaymentRequest.RecurringCyclePeriod == RecurringProductCyclePeriod.Years ? (PlanFrequency?)PlanFrequency.Annually : null,
+                PlanDuration = processPaymentRequest.RecurringTotalCycles - 1,
+                RecurringAmount = Math.Round(processPaymentRequest.OrderTotal),
+                SetupAmount = Math.Round(processPaymentRequest.OrderTotal),
+                Status = SubscriptionStatus.Active
+            });
+            if (subscription?.SubscriptionId == null)
+                throw new NopException("Qualpay Payment Gateway error: Failed to create recurring payment.");
+
+            //request succeeded
+            var result = new ProcessPaymentResult
+            {
+                SubscriptionTransactionId = subscription.SubscriptionId.ToString()
+            };
+
+            //whether the first payment is succeeded
+            if (subscription.TransactionResponse != null)
+            {
+                result.AuthorizationTransactionCode = subscription.TransactionResponse.AuthorizationCode;
+                result.AuthorizationTransactionId = subscription.TransactionResponse.TransactionId;
+                result.CaptureTransactionId = subscription.TransactionResponse.TransactionId;
+                result.CaptureTransactionResult = subscription.TransactionResponse.Message;
+                result.CaptureTransactionResult = subscription.TransactionResponse.Message;
+                result.AvsResult = subscription.TransactionResponse.AvsResult;
+                result.Cvv2Result = subscription.TransactionResponse.Cvv2Result;
+            }
+
+            return result;
         }
 
         /// <summary>
@@ -459,7 +508,13 @@ namespace Nop.Plugin.Payments.Qualpay
         /// <returns>Result</returns>
         public CancelRecurringPaymentResult CancelRecurringPayment(CancelRecurringPaymentRequest cancelPaymentRequest)
         {
-            return new CancelRecurringPaymentResult { Errors = new[] { "Recurring payment not supported" } };
+            var canceledSubscription = _qualpayManager
+                .CancelSubscription(cancelPaymentRequest.Order.CustomerId.ToString(), cancelPaymentRequest.Order.SubscriptionTransactionId);
+
+            if (canceledSubscription == null || canceledSubscription.Status == SubscriptionStatus.Active)
+                throw new NopException("Qualpay Payment Gateway error: Failed to cancel recurring payment.");
+
+            return new CancelRecurringPaymentResult();
         }
 
         /// <summary>
@@ -661,7 +716,7 @@ namespace Nop.Plugin.Payments.Qualpay
         /// </summary>
         public RecurringPaymentType RecurringPaymentType
         {
-            get { return RecurringPaymentType.NotSupported; }
+            get { return RecurringPaymentType.Automatic; }
         }
 
         /// <summary>
