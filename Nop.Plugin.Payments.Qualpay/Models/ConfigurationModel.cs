@@ -36,7 +36,11 @@ namespace Nop.Plugin.Payments.Qualpay.Models
         [NopResourceDisplayName("Plugins.Payments.Qualpay.Fields.UseSandbox")]
         public bool UseSandbox { get; set; }
         public bool UseSandbox_OverrideForStore { get; set; }
-        
+
+        [NopResourceDisplayName("Plugins.Payments.Qualpay.Fields.UseEmbeddedFields")]
+        public bool UseEmbeddedFields { get; set; }
+        public bool UseEmbeddedFields_OverrideForStore { get; set; }
+
         public int PaymentTransactionTypeId { get; set; }
         public bool PaymentTransactionTypeId_OverrideForStore { get; set; }
         [NopResourceDisplayName("Plugins.Payments.Qualpay.Fields.PaymentTransactionType")]

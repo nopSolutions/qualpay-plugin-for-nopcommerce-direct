@@ -1,6 +1,4 @@
 ﻿
-using System.Collections.Generic;
-
 namespace Nop.Plugin.Payments.Qualpay
 {
     /// <summary>
@@ -32,6 +30,21 @@ namespace Nop.Plugin.Payments.Qualpay
         /// Numeric ISO code of the USD currency
         /// </summary>
         public static int UsdNumericIsoCode => 840;
+
+        /// <summary>
+        /// One page checkout route name
+        /// </summary>
+        public static string OnePageCheckoutRouteName => "CheckoutOnePage";
+
+        /// <summary>
+        /// Path to the Qualpay Embedded Fields js script
+        /// </summary>
+        public static string EmbeddedFieldsScriptPath => "https://app.qualpay.com/hosted/embedded/js/qp-embedded-sdk.min.js";
+
+        /// <summary>
+        /// Path to the Qualpay Embedded Fields css styles
+        /// </summary>
+        public static string EmbeddedFieldsStylePath => "https://app.qualpay.com/hosted/embedded/css/qp-embedded.css";
 
         /// <summary>
         /// Webhook label

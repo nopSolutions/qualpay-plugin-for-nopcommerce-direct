@@ -222,17 +222,29 @@ namespace Nop.Plugin.Payments.Qualpay
             }
 
             //set card details to the request parameters
-            transactionRequest.CardholderName = processPaymentRequest.CreditCardName;
-            transactionRequest.CardNumber = processPaymentRequest.CreditCardNumber;
-            transactionRequest.Cvv2 = processPaymentRequest.CreditCardCvv2;
-            transactionRequest.ExpirationDate = $"{processPaymentRequest.CreditCardExpireMonth:D2}{processPaymentRequest.CreditCardExpireYear.ToString().Substring(2)}";
-            transactionRequest.AvsAddress = CommonHelper.EnsureMaximumLength(customer.BillingAddress?.Address1, 20);
-            transactionRequest.AvsZip = customer.BillingAddress?.ZipPostalCode;
+            if (_qualpaySettings.UseEmbeddedFields)
+            {
+                //try to get tokenized card identifier
+                var tokenizedCardIdKey = _localizationService.GetResource("Plugins.Payments.Qualpay.Customer.Card.Token");
+                if (processPaymentRequest.CustomValues.TryGetValue(tokenizedCardIdKey, out object tokenizedCardId))
+                    transactionRequest.CardId = tokenizedCardId.ToString();
+
+                //remove the value from payment custom values, since it is no longer needed
+                processPaymentRequest.CustomValues.Remove(tokenizedCardIdKey);
+            }
+            else
+            {
+                transactionRequest.CardholderName = processPaymentRequest.CreditCardName;
+                transactionRequest.CardNumber = processPaymentRequest.CreditCardNumber;
+                transactionRequest.Cvv2 = processPaymentRequest.CreditCardCvv2;
+                transactionRequest.ExpirationDate = $"{processPaymentRequest.CreditCardExpireMonth:D2}{processPaymentRequest.CreditCardExpireYear.ToString().Substring(2)}";
+                transactionRequest.AvsAddress = CommonHelper.EnsureMaximumLength(customer.BillingAddress?.Address1, 20);
+                transactionRequest.AvsZip = customer.BillingAddress?.ZipPostalCode;
+            }
 
             //whether the customer has chosen to save card details for the future using
             var saveCardKey = _localizationService.GetResource("Plugins.Payments.Qualpay.Customer.Card.Save");
-            var saveCard = processPaymentRequest.CustomValues.ContainsKey(saveCardKey);
-            if (!saveCard)
+            if (!processPaymentRequest.CustomValues.ContainsKey(saveCardKey))
                 return transactionRequest;
 
             //remove the value from payment custom values, since it is no longer needed
@@ -544,21 +556,30 @@ namespace Nop.Plugin.Payments.Qualpay
         {
             if (form == null)
                 throw new ArgumentException(nameof(form));
-            
-            //validate payment info
-            var validationResult = new QualpayPaymentInfoValidator(_localizationService).Validate(new PaymentInfoModel
+
+            if (_qualpaySettings.UseEmbeddedFields)
             {
-                CardholderName = form["CardholderName"],
-                CardNumber = form["CardNumber"],
-                CardCode = form["CardCode"],
-                ExpireMonth = form["ExpireMonth"],
-                ExpireYear = form["ExpireYear"],
-                BillingCardId = form["BillingCardId"],
-                SaveCardDetails = form.TryGetValue("SaveCardDetails", out StringValues saveCardDetails) &&
-                    bool.TryParse(saveCardDetails.FirstOrDefault(), out bool saveCard) && saveCard
-            });
-            if (!validationResult.IsValid)
-                return validationResult.Errors.Select(error => error.ErrorMessage).ToList();
+                //try to get Qualpay validation errors
+                if (form.TryGetValue("Errors", out StringValues errorsString) && !StringValues.IsNullOrEmpty(errorsString))
+                    return errorsString.ToString().Split(new[] { '|' }, StringSplitOptions.RemoveEmptyEntries).ToList();
+            }
+            else
+            {
+                //validate payment info (custom validation)
+                var validationResult = new QualpayPaymentInfoValidator(_localizationService).Validate(new PaymentInfoModel
+                {
+                    CardholderName = form["CardholderName"],
+                    CardNumber = form["CardNumber"],
+                    CardCode = form["CardCode"],
+                    ExpireMonth = form["ExpireMonth"],
+                    ExpireYear = form["ExpireYear"],
+                    BillingCardId = form["BillingCardId"],
+                    SaveCardDetails = form.TryGetValue("SaveCardDetails", out StringValues saveCardDetails) &&
+                        bool.TryParse(saveCardDetails.FirstOrDefault(), out bool saveCard) && saveCard
+                });
+                if (!validationResult.IsValid)
+                    return validationResult.Errors.Select(error => error.ErrorMessage).ToList();
+            }
 
             return new List<string>();
         }
@@ -573,14 +594,7 @@ namespace Nop.Plugin.Payments.Qualpay
             if (form == null)
                 throw new ArgumentException(nameof(form));
 
-            var paymentRequest = new ProcessPaymentRequest
-            {
-                CreditCardName = form["CardholderName"],
-                CreditCardNumber = form["CardNumber"],
-                CreditCardExpireMonth = int.Parse(form["ExpireMonth"]),
-                CreditCardExpireYear = int.Parse(form["ExpireYear"]),
-                CreditCardCvv2 = form["CardCode"]
-            };
+            var paymentRequest = new ProcessPaymentRequest();
 
             //pass custom values to payment processor
             var cardId = form["BillingCardId"];
@@ -590,6 +604,23 @@ namespace Nop.Plugin.Payments.Qualpay
             var saveCardDetails = form["SaveCardDetails"];
             if (!StringValues.IsNullOrEmpty(saveCardDetails) && bool.TryParse(saveCardDetails.FirstOrDefault(), out bool saveCard) && saveCard)
                 paymentRequest.CustomValues.Add(_localizationService.GetResource("Plugins.Payments.Qualpay.Customer.Card.Save"), true);
+
+            if (_qualpaySettings.UseEmbeddedFields)
+            {
+                //card details is already validated and tokenized by Qualpay
+                var tokenizedCardId = form["TokenizedCardId"];
+                if (!StringValues.IsNullOrEmpty(tokenizedCardId))
+                    paymentRequest.CustomValues.Add(_localizationService.GetResource("Plugins.Payments.Qualpay.Customer.Card.Token"), tokenizedCardId.FirstOrDefault());
+            }
+            else
+            {
+                //set card details
+                paymentRequest.CreditCardName = form["CardholderName"];
+                paymentRequest.CreditCardNumber = form["CardNumber"];
+                paymentRequest.CreditCardExpireMonth = int.Parse(form["ExpireMonth"]);
+                paymentRequest.CreditCardExpireYear = int.Parse(form["ExpireYear"]);
+                paymentRequest.CreditCardCvv2 = form["CardCode"];
+            }
 
             return paymentRequest;
         }
@@ -620,6 +651,7 @@ namespace Nop.Plugin.Payments.Qualpay
             _settingService.SaveSetting(new QualpaySettings
             {
                 UseSandbox = true,
+                UseEmbeddedFields = true,
                 PaymentTransactionType = TransactionType.Sale
             });
 

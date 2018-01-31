@@ -255,6 +255,16 @@ namespace Nop.Plugin.Payments.Qualpay.Services
         }
 
         /// <summary>
+        /// Get transient key from Qualpay Embedded Fields
+        /// </summary>
+        /// <returns>Embedded key</returns>
+        public EmbeddedKey GetTransientKey()
+        {
+            var getTransientKeyRequest = new GetTransientKeyRequest();
+            return ProcessPlatformRequest<GetTransientKeyRequest, EmbeddedFieldsResponse>(getTransientKeyRequest)?.EmbeddedKey;
+        }
+
+        /// <summary>
         /// Get a webhook by the stored identifier
         /// </summary>
         /// <returns>Webhook</returns>

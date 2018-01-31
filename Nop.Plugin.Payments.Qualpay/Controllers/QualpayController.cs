@@ -71,6 +71,7 @@ namespace Nop.Plugin.Payments.Qualpay.Controllers
                 MerchantId = settings.MerchantId,
                 SecurityKey = settings.SecurityKey,
                 UseSandbox = settings.UseSandbox,
+                UseEmbeddedFields = settings.UseEmbeddedFields,
                 PaymentTransactionTypeId = (int)settings.PaymentTransactionType,
                 AdditionalFee = settings.AdditionalFee,
                 AdditionalFeePercentage = settings.AdditionalFeePercentage,
@@ -81,6 +82,7 @@ namespace Nop.Plugin.Payments.Qualpay.Controllers
             {
                 model.SecurityKey_OverrideForStore = _settingService.SettingExists(settings, x => x.SecurityKey, storeScope);
                 model.UseSandbox_OverrideForStore = _settingService.SettingExists(settings, x => x.UseSandbox, storeScope);
+                model.UseEmbeddedFields_OverrideForStore = _settingService.SettingExists(settings, x => x.UseEmbeddedFields, storeScope);
                 model.PaymentTransactionTypeId_OverrideForStore = _settingService.SettingExists(settings, x => x.PaymentTransactionType, storeScope);
                 model.AdditionalFee_OverrideForStore = _settingService.SettingExists(settings, x => x.AdditionalFee, storeScope);
                 model.AdditionalFeePercentage_OverrideForStore = _settingService.SettingExists(settings, x => x.AdditionalFeePercentage, storeScope);
@@ -118,6 +120,7 @@ namespace Nop.Plugin.Payments.Qualpay.Controllers
             settings.MerchantId = model.MerchantId;
             settings.SecurityKey = model.SecurityKey;
             settings.UseSandbox = model.UseSandbox;
+            settings.UseEmbeddedFields = model.UseEmbeddedFields;
             settings.PaymentTransactionType = (TransactionType)model.PaymentTransactionTypeId;
             settings.AdditionalFee = model.AdditionalFee;
             settings.AdditionalFeePercentage = model.AdditionalFeePercentage;
@@ -128,6 +131,7 @@ namespace Nop.Plugin.Payments.Qualpay.Controllers
             _settingService.SaveSetting(settings, x => x.MerchantId, storeScope, false);
             _settingService.SaveSettingOverridablePerStore(settings, x => x.SecurityKey, model.SecurityKey_OverrideForStore, storeScope, false);
             _settingService.SaveSettingOverridablePerStore(settings, x => x.UseSandbox, model.UseSandbox_OverrideForStore, storeScope, false);
+            _settingService.SaveSettingOverridablePerStore(settings, x => x.UseEmbeddedFields, model.UseEmbeddedFields_OverrideForStore, storeScope, false);
             _settingService.SaveSettingOverridablePerStore(settings, x => x.PaymentTransactionType, model.PaymentTransactionTypeId_OverrideForStore, storeScope, false);
             _settingService.SaveSettingOverridablePerStore(settings, x => x.AdditionalFee, model.AdditionalFee_OverrideForStore, storeScope, false);
             _settingService.SaveSettingOverridablePerStore(settings, x => x.AdditionalFeePercentage, model.AdditionalFeePercentage_OverrideForStore, storeScope, false);

@@ -20,6 +20,7 @@ namespace Nop.Plugin.Payments.Qualpay.Components
         private readonly ILocalizationService _localizationService;
         private readonly IWorkContext _workContext;
         private readonly QualpayManager _qualpayManager;
+        private readonly QualpaySettings _qualpaySettings;
 
         #endregion
 
@@ -27,11 +28,13 @@ namespace Nop.Plugin.Payments.Qualpay.Components
 
         public QualpayViewComponent(ILocalizationService localizationService, 
             IWorkContext workContext,
-            QualpayManager qualpayManager)
+            QualpayManager qualpayManager,
+            QualpaySettings qualpaySettings)
         {
             this._localizationService = localizationService;
             this._workContext = workContext;
             this._qualpayManager = qualpayManager;
+            this._qualpaySettings = qualpaySettings;
         }
 
         #endregion
@@ -67,7 +70,7 @@ namespace Nop.Plugin.Payments.Qualpay.Components
                 model.BillingCards = _qualpayManager.GetCustomerCards(_workContext.CurrentCustomer.Id.ToString())
                     ?.Where(card => card != null)
                     ?.Select(card => new SelectListItem { Text = card.CardNumber, Value = card.CardId }).ToList()
-                    ?? new List<SelectListItem>();         
+                    ?? new List<SelectListItem>();
 
                 //add the special item for 'select card' with empty GUID value 
                 if (model.BillingCards.Any())
@@ -76,6 +79,10 @@ namespace Nop.Plugin.Payments.Qualpay.Components
                     model.BillingCards.Insert(0, new SelectListItem { Text = selectCardText, Value = Guid.Empty.ToString() });
                 }
             }
+
+            //try to get transient key
+            if (_qualpaySettings.UseEmbeddedFields)
+                model.TransientKey = _qualpayManager.GetTransientKey()?.TransientKey;
 
             return View("~/Plugins/Payments.Qualpay/Views/PaymentInfo.cshtml", model);
         }

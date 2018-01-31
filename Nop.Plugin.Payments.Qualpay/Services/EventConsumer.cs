@@ -1,5 +1,7 @@
-﻿using Microsoft.AspNetCore.Html;
+﻿using System.Linq;
+using Microsoft.AspNetCore.Html;
 using Microsoft.AspNetCore.Mvc.Rendering;
+using Microsoft.AspNetCore.Routing;
 using Nop.Core.Domain.Customers;
 using Nop.Core.Domain.Payments;
 using Nop.Plugin.Payments.Qualpay.Domain.Platform;
@@ -11,6 +13,7 @@ using Nop.Services.Payments;
 using Nop.Web.Areas.Admin.Models.Customers;
 using Nop.Web.Framework.Events;
 using Nop.Web.Framework.Extensions;
+using Nop.Web.Framework.UI;
 
 namespace Nop.Plugin.Payments.Qualpay.Services
 {
@@ -18,7 +21,8 @@ namespace Nop.Plugin.Payments.Qualpay.Services
     /// Represents event consumer of the Qualpay payment plugin
     /// </summary>
     public class EventConsumer :
-        IConsumer<AdminTabStripCreated>
+        IConsumer<AdminTabStripCreated>,
+        IConsumer<PageRenderingEvent>
     {
         #region Fields
 
@@ -112,6 +116,28 @@ namespace Nop.Plugin.Payments.Qualpay.Services
 
             //add this tab as a block to render on the customer details page
             eventMessage.BlocksToRender.Add(qualpayCustomerTab);
+        }
+
+        /// <summary>
+        /// Handle page rendering event
+        /// </summary>
+        /// <param name="eventMessage">Event message</param>
+        public void HandleEvent(PageRenderingEvent eventMessage)
+        {
+            if (eventMessage?.Helper?.ViewContext == null)
+                return;
+
+            //check whether the payment plugin is installed and is active
+            if (!_paymentService.LoadPaymentMethodBySystemName(QualpayDefaults.SystemName)?.IsPaymentMethodActive(_paymentSettings) ?? true)
+                return;
+
+            //add Embedded Fields sсript and styles to the one page checkout
+            var matchedRoutes = eventMessage.Helper.ViewContext.RouteData.Routers.OfType<INamedRouter>();
+            if (matchedRoutes.Any(route => route.Name.Equals(QualpayDefaults.OnePageCheckoutRouteName)))
+            {
+                eventMessage.Helper.AddScriptParts(ResourceLocation.Footer, QualpayDefaults.EmbeddedFieldsScriptPath, excludeFromBundle: true);
+                eventMessage.Helper.AddCssFileParts(QualpayDefaults.EmbeddedFieldsStylePath, excludeFromBundle: true);
+            }
         }
 
         #endregion

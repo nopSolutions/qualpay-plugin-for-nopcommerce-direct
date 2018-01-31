@@ -24,6 +24,12 @@ namespace Nop.Plugin.Payments.Qualpay.Models
 
         public bool IsGuest { get; set; }
 
+        public string Errors { get; set; }
+
+        public string TokenizedCardId { get; set; }
+
+        public string TransientKey { get; set; }
+
         public string CardholderName { get; set; }
         
         public string CardNumber { get; set; }

@@ -24,6 +24,11 @@ namespace Nop.Plugin.Payments.Qualpay
         public bool UseSandbox { get; set; }
 
         /// <summary>
+        /// Gets or sets a value indicating whether to use Qualpay Embedded Fields
+        /// </summary>
+        public bool UseEmbeddedFields { get; set; }
+
+        /// <summary>
         /// Gets or sets the payment transaction type (authorization only or authorization and capture in a single request)
         /// </summary>
         public TransactionType PaymentTransactionType { get; set; }
