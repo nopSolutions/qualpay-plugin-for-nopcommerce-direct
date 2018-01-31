@@ -10,11 +10,11 @@ namespace Nop.Plugin.Payments.Qualpay.Models.Customer
         public string Id { get; set; }
 
         public string CardId { get; set; }
-        
+
         public string MaskedNumber { get; set; }
 
         public string ExpirationDate { get; set; }
-        
+
         public string CardType { get; set; }
     }
 }

@@ -95,11 +95,11 @@ namespace Nop.Plugin.Payments.Qualpay.Services
 
                 //process request
                 return ProcessRequest<TRequest, TResponse>(paymentGatewayRequest);
-            }) ?? throw new NopException("An error occurred while processing. Error details in the log.");
+            }) ?? throw new NopException("No response from the Qualpay Payment Gateway.");
 
             //whether request is succeeded
             if (response.ResponseCode != PaymentGatewayResponseCode.Success)
-                throw new NopException($"{response.ResponseCode}. {response.Message}");
+                throw new NopException($"Qualpay Payment Gateway error: {response.ResponseCode}. {response.Message}");
 
             return response;
         }
@@ -111,7 +111,8 @@ namespace Nop.Plugin.Payments.Qualpay.Services
         /// <typeparam name="TResponse">Response type</typeparam>
         /// <param name="request">Request</param>
         /// <returns>Response</returns>
-        private TResponse ProcessRequest<TRequest, TResponse>(TRequest request) where TRequest: QualpayRequest where TResponse: QualpayResponse
+        private TResponse ProcessRequest<TRequest, TResponse>(TRequest request)
+            where TRequest : QualpayRequest where TResponse : QualpayResponse
         {
             //create requesting URL
             var url = $"{GetServiceBaseUrl()}{request.GetRequestPath()}";
@@ -143,6 +144,7 @@ namespace Nop.Plugin.Payments.Qualpay.Services
             using (var streamReader = new StreamReader(httpResponse.GetResponseStream()))
                 responseMessage = streamReader.ReadToEnd();
 
+            //return result
             return JsonConvert.DeserializeObject<TResponse>(responseMessage);
         }
 
@@ -181,6 +183,7 @@ namespace Nop.Plugin.Payments.Qualpay.Services
                         }
                     }
                 }
+                catch { }
                 finally
                 {
                     //log errors
@@ -222,7 +225,7 @@ namespace Nop.Plugin.Payments.Qualpay.Services
         /// Get customer billing cards from Qualpay Customer Vault
         /// </summary>
         /// <param name="customerId">Customer identifier</param>
-        /// <returns>List of customer billing cards</returns>
+        /// <returns>Collection of customer billing cards</returns>
         public IEnumerable<BillingCard> GetCustomerCards(string customerId)
         {
             var getCustomerCardsRequest = new GetCustomerCardsRequest { CustomerId = customerId };
@@ -238,6 +241,17 @@ namespace Nop.Plugin.Payments.Qualpay.Services
         public bool CreateCustomerCard(CreateCustomerCardRequest createCustomerCardRequest)
         {
             var response = ProcessPlatformRequest<CreateCustomerCardRequest, CustomerVaultResponse>(createCustomerCardRequest);
+            return response?.ResponseCode == PlatformResponseCode.Success;
+        }
+
+        /// <summary>
+        /// Update customer billing card in Qualpay Customer Vault
+        /// </summary>
+        /// <param name="updateCustomerCardRequest">Request parameters to update card</param>
+        /// <returns>True if customer card successfully updated in the Vault; otherwise false</returns>
+        public bool UpdateCustomerCard(UpdateCustomerCardRequest updateCustomerCardRequest)
+        {
+            var response = ProcessPlatformRequest<UpdateCustomerCardRequest, CustomerVaultResponse>(updateCustomerCardRequest);
             return response?.ResponseCode == PlatformResponseCode.Success;
         }
 
@@ -265,14 +279,15 @@ namespace Nop.Plugin.Payments.Qualpay.Services
         }
 
         /// <summary>
-        /// Get a webhook by the stored identifier
+        /// Get a webhook by the identifier
         /// </summary>
+        /// <param name="webhookId">Webhook identifier</param>
         /// <returns>Webhook</returns>
-        public Webhook GetWebhook()
+        public Webhook GetWebhookById(string webhookId)
         {
             var getWebhookRequest = new GetWebhookRequest
             {
-                WebhookId = long.TryParse(_qualpaySettings.WebhookId, out long webhookId) ? (long?)webhookId : null
+                WebhookId = long.TryParse(webhookId, out long webhookIdValue) ? (long?)webhookIdValue : null
             };
             return ProcessPlatformRequest<GetWebhookRequest, WebhookResponse>(getWebhookRequest)?.Webhook;
         }
@@ -285,22 +300,22 @@ namespace Nop.Plugin.Payments.Qualpay.Services
         public Webhook CreateWebhook(CreateWebhookRequest createWebhookRequest)
         {
             createWebhookRequest.WebhookNode = _qualpaySettings.MerchantId;
-            createWebhookRequest.Secret = _qualpaySettings.SecurityKey;
             return ProcessPlatformRequest<CreateWebhookRequest, WebhookResponse>(createWebhookRequest)?.Webhook;
         }
-
+        
         /// <summary>
-        /// Validate received webhook that a request is initiated by Qualpay
+        /// Validate whether webhook request is initiated by Qualpay and return received data details if is valid
         /// </summary>
+        /// <typeparam name="T">Data details type</typeparam>
         /// <param name="request">Request</param>
-        /// <returns>True if webhook successfully validated; otherwise false</returns>
-        public bool ValidateWebhook(HttpRequest request)
+        /// <returns>True if webhook request is valid; otherwise false and received data details</returns>
+        public (bool requestIsValid, WebhookEvent<T> webhookEvent) ValidateWebhook<T>(HttpRequest request) where T: PlatformRequest
         {
             return HandleRequestAction(() =>
             {
                 //try to get request message
                 var message = string.Empty;
-                using (var streamReader = new StreamReader(request.Body))
+                using (var streamReader = new StreamReader(request.Body, Encoding.UTF8))
                     message = streamReader.ReadToEnd();
 
                 if (string.IsNullOrEmpty(message))
@@ -311,17 +326,35 @@ namespace Nop.Plugin.Payments.Qualpay.Services
                     throw new NopException("Webhook request not signed by a signature header.");
 
                 //get encrypted string from the request message
-                var keyBytes = Encoding.UTF8.GetBytes(_qualpaySettings.SecurityKey);
-                var messageBytes = Encoding.UTF8.GetBytes(message);
-                var encryptedBytes = new HMACSHA256(keyBytes).ComputeHash(messageBytes);
-                var encryptedString = Convert.ToBase64String(encryptedBytes);
+                var encryptedString = string.Empty;
+                using (var hashAlgorithm = new HMACSHA256(Encoding.UTF8.GetBytes(_qualpaySettings.WebhookSecretKey)))
+                    encryptedString = Convert.ToBase64String(hashAlgorithm.ComputeHash(Encoding.UTF8.GetBytes(message)));
 
                 //equal this encrypted string with received signatures
                 if (!signatures.Any(signature => signature.Equals(encryptedString)))
                     throw new NopException("Webhook request isn't valid.");
 
-                return true;
-            });          
+                //request is valid, so log received message
+                _logger.Information($"Qualpay Webhook. Webhook request is received: {message}");
+
+                //and try to get data details from webhook message
+                var webhookEvent = JsonConvert.DeserializeObject<WebhookEvent<T>>(message);
+                if (webhookEvent?.Data is T data)
+                    return (true, webhookEvent);
+
+                return (true, null);
+            });
+        }
+
+        /// <summary>
+        /// Get subscription transactions
+        /// </summary>
+        /// <param name="subscriptionId">Subscription identifier</param>
+        /// <returns>Collection of transactions</returns>
+        public IEnumerable<SubscriptionTransaction> GetSubscriptionTransactions(long? subscriptionId)
+        {
+            var request = new GetSubscriptionTransactionsRequest { SubscriptionId = subscriptionId };
+            return ProcessPlatformRequest<GetSubscriptionTransactionsRequest, SubscriptionTransactionsResponse>(request)?.Transactions;
         }
 
         /// <summary>
@@ -342,8 +375,8 @@ namespace Nop.Plugin.Payments.Qualpay.Services
         /// </summary>
         /// <param name="customerId">Customer identifier</param>
         /// <param name="subscriptionId">Subscription identifier</param>
-        /// <returns>Subscription</returns>
-        public Subscription CancelSubscription(string customerId, string subscriptionId)
+        /// <returns>True if subscription successfully cancelled; otherwise false</returns>
+        public bool CancelSubscription(string customerId, string subscriptionId)
         {
             var cancelSubscriptionRequest = new CancelSubscriptionRequest { CustomerId = customerId };
             if (long.TryParse(subscriptionId, out long subscriptionIdInt))
@@ -351,12 +384,23 @@ namespace Nop.Plugin.Payments.Qualpay.Services
             if (long.TryParse(_qualpaySettings.MerchantId, out long merchantId))
                 cancelSubscriptionRequest.MerchantId = merchantId;
 
-            return ProcessPlatformRequest<CancelSubscriptionRequest, SubscriptionResponse>(cancelSubscriptionRequest)?.Subscription;
+            var response = ProcessPlatformRequest<CancelSubscriptionRequest, SubscriptionResponse>(cancelSubscriptionRequest);
+            return response?.ResponseCode == PlatformResponseCode.Success;
         }
 
         #endregion
 
         #region Payment Gateway
+
+        /// <summary>
+        /// Tokenize card data
+        /// </summary>
+        /// <param name="tokenizeRequest">Request parameters to tokenize card</param>
+        /// <returns>Card identifier</returns>
+        public string TokenizeCard(TokenizeRequest tokenizeRequest)
+        {
+            return ProcessPaymentGatewayRequest<TokenizeRequest, TokenizeResponse>(tokenizeRequest)?.CardId;
+        }
 
         /// <summary>
         /// Authorize a transaction
@@ -372,7 +416,7 @@ namespace Nop.Plugin.Payments.Qualpay.Services
         /// <summary>
         /// Sale
         /// </summary>
-        /// <param name="transactionRequest">Request parameters to sale transaction</param>
+        /// <param name="transactionRequest">Request parameters to sale</param>
         /// <returns>Response</returns>
         public TransactionResponse Sale(TransactionRequest transactionRequest)
         {

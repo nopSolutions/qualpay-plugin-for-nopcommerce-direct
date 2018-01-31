@@ -3,7 +3,7 @@ using Newtonsoft.Json;
 namespace Nop.Plugin.Payments.Qualpay.Domain.PaymentGateway
 {
     /// <summary>
-    /// Represents Qualpay Payment Gateway request with card data
+    /// Represents base Qualpay Payment Gateway request with card data
     /// </summary>
     public abstract class PaymentCardRequest : PaymentGatewayRequest
     {

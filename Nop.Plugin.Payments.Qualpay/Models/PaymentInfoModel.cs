@@ -24,6 +24,8 @@ namespace Nop.Plugin.Payments.Qualpay.Models
 
         public bool IsGuest { get; set; }
 
+        public bool IsRecurringOrder { get; set; }
+
         public string Errors { get; set; }
 
         public string TokenizedCardId { get; set; }
@@ -31,17 +33,17 @@ namespace Nop.Plugin.Payments.Qualpay.Models
         public string TransientKey { get; set; }
 
         public string CardholderName { get; set; }
-        
+
         public string CardNumber { get; set; }
 
         public string CardCode { get; set; }
 
         public string ExpireMonth { get; set; }
         public IList<SelectListItem> ExpireMonths { get; set; }
-        
+
         public string ExpireYear { get; set; }
         public IList<SelectListItem> ExpireYears { get; set; }
-        
+
         public bool SaveCardDetails { get; set; }
 
         public string BillingCardId { get; set; }

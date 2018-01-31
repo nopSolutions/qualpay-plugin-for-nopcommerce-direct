@@ -20,7 +20,7 @@ namespace Nop.Plugin.Payments.Qualpay.Domain.PaymentGateway
         /// Gets or sets the total amount to refund. Partial refunds are allowed by providing an amount in this field that is less than the total original transaction amount.
         /// </summary>
         [JsonProperty(PropertyName = "amt_tran")]
-        public decimal Amount { get; set; }
+        public decimal? Amount { get; set; }
 
         /// <summary>
         /// Gets or sets an identifier of vendor to which this capture request applies.

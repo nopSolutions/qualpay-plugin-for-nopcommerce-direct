@@ -5,7 +5,7 @@ using Nop.Web.Framework.Mvc.Routing;
 namespace Nop.Plugin.Payments.Qualpay.Infrastructure
 {
     /// <summary>
-    /// Represents Qualpay payment plugin route provider
+    /// Represents plugin route provider
     /// </summary>
     public partial class RouteProvider : IRouteProvider
     {
@@ -15,9 +15,9 @@ namespace Nop.Plugin.Payments.Qualpay.Infrastructure
         /// <param name="routeBuilder">Route builder</param>
         public void RegisterRoutes(IRouteBuilder routeBuilder)
         {
-            //add route for the webhook handler
-            routeBuilder.MapRoute(QualpayDefaults.WebhookRouteName, "Plugins/Qualpay/Webhook/", 
-                new { controller = "Qualpay", action = "WebhookHandler" });
+            //add route to the webhook handler
+            routeBuilder.MapRoute(QualpayDefaults.WebhookRouteName, "Plugins/Qualpay/Webhook/",
+                new { controller = "Webhook", action = "WebhookHandler" });
         }
 
         /// <summary>

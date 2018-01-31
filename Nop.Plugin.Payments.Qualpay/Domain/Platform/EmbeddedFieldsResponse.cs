@@ -10,7 +10,7 @@ namespace Nop.Plugin.Payments.Qualpay.Domain.Platform
         #region Properties
 
         /// <summary>
-        /// Gets or sets Embedded Key
+        /// Gets or sets embedded key
         /// </summary>
         [JsonProperty(PropertyName = "data")]
         public EmbeddedKey EmbeddedKey { get; set; }

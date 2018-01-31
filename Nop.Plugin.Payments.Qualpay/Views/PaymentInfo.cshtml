@@ -9,8 +9,6 @@
     Html.AddCssFileParts(Nop.Plugin.Payments.Qualpay.QualpayDefaults.EmbeddedFieldsStylePath, excludeFromBundle: true);
 }
 
-
-
 <script>
     $(document).ready(function() {
         $("#@Html.IdFor(model => model.BillingCardId)").change(toggleBillingCard);
@@ -23,6 +21,7 @@
             <form id="qualpay-payment-form">
                 <input type="submit" id="qualpay-payment-form-submit" style="display: none" />
             </form>`);
+
         var submitForm = false;
         var errorsExist = false;
         var stepBack = false;
@@ -104,7 +103,7 @@
     }
 </script>
 
-@if (!Model.IsGuest && Model.BillingCards.Any())
+@if (qualpaySettings.UseCustomerVault && !Model.IsGuest && Model.BillingCards.Any())
 {
     <table width="100%" cellspacing="2" cellpadding="1" border="0">
         <tr>
@@ -172,7 +171,7 @@ else
         </td>
     </tr>
 }
-@if (!Model.IsGuest)
+@if (qualpaySettings.UseCustomerVault && !Model.IsGuest && !Model.IsRecurringOrder)
 {
     <tr>
         <td>

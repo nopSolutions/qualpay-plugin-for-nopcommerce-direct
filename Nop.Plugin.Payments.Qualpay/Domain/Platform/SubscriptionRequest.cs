@@ -18,19 +18,19 @@ namespace Nop.Plugin.Payments.Qualpay.Domain.Platform
         public long? SubscriptionId { get; set; }
 
         /// <summary>
-        /// Gets or sets Unique ID assigned by Qualpay for a Merchant
+        /// Gets or sets unique ID assigned by Qualpay for a Merchant
         /// </summary>
         [JsonProperty(PropertyName = "merchant_id")]
         public long? MerchantId { get; set; }
 
         /// <summary>
-        /// Gets or sets Unique ID that identifies a customer
+        /// Gets or sets unique ID that identifies a customer
         /// </summary>
         [JsonProperty(PropertyName = "customer_id")]
         public string CustomerId { get; set; }
 
         /// <summary>
-        ///  Status of the subscription.
+        /// Gets or sets status of the subscription.
         /// </summary>
         [JsonProperty(PropertyName = "status")]
         [JsonConverter(typeof(StringEnumConverter))]
@@ -49,49 +49,55 @@ namespace Nop.Plugin.Payments.Qualpay.Domain.Platform
         public long? PlanId { get; set; }
 
         /// <summary>
-        /// Gets or sets Name assigned by Merchant to a plan.
+        /// Gets or sets name assigned by Merchant to a plan.
         /// </summary>
         [JsonProperty(PropertyName = "plan_name")]
         public string PlanName { get; set; }
 
         /// <summary>
-        /// Gets or sets Code assigned by Merchant to a plan.
+        /// Gets or sets code assigned by Merchant to a plan.
         /// </summary>
         [JsonProperty(PropertyName = "plan_code")]
         public string PlanCode { get; set; }
 
         /// <summary>
-        /// Gets or sets First name of the Plan subscriber
+        /// Gets or sets first name of the plan subscriber
         /// </summary>
         [JsonProperty(PropertyName = "customer_first_name")]
         public string CustomerFirstName { get; set; }
 
         /// <summary>
-        /// Gets or sets Last name of the Plan subscriber
+        /// Gets or sets last name of the plan subscriber
         /// </summary>
         [JsonProperty(PropertyName = "customer_last_name")]
         public string CustomerLastName { get; set; }
 
         /// <summary>
-        /// Gets or sets Start Date of subscription. When adding a subscription, the start date should be in future. 
+        /// Gets or sets the amount of the transaction.
+        /// </summary>
+        [JsonProperty(PropertyName = "amt_tran")]
+        public decimal? Amount { get; set; }
+
+        /// <summary>
+        /// Gets or sets start date of subscription. When adding a subscription, the start date should be in future. 
         /// </summary>
         [JsonProperty(PropertyName = "date_start")]
         public string DateStart { get; set; }
 
         /// <summary>
-        /// Gets or sets Next Billing date of subscription. This field will be empty for cancelled and completed subscriptions.
+        /// Gets or sets next billing date of subscription. This field will be empty for cancelled and completed subscriptions.
         /// </summary>
         [JsonProperty(PropertyName = "date_next")]
         public string DateNext { get; set; }
 
         /// <summary>
-        /// Gets or sets Date when the subscription will end. 
+        /// Gets or sets date when the subscription will end. 
         /// </summary>
         [JsonProperty(PropertyName = "date_end")]
         public string DateEnd { get; set; }
 
         /// <summary>
-        /// Gets or sets One-Time Fee amount. This fee will be charged when a subscription is added.
+        /// Gets or sets one-time fee amount. This fee will be charged when a subscription is added.
         /// </summary>
         [JsonProperty(PropertyName = "amt_setup")]
         public decimal? SetupAmount { get; set; }
@@ -103,7 +109,7 @@ namespace Nop.Plugin.Payments.Qualpay.Domain.Platform
         public string ProrateDateStart { get; set; }
 
         /// <summary>
-        /// Gets or sets the Prorate amount, if first payment is prorated.
+        /// Gets or sets the prorate amount, if first payment is prorated.
         /// </summary>
         [JsonProperty(PropertyName = "prorate_amt")]
         public decimal? ProrateAmount { get; set; }
@@ -127,25 +133,25 @@ namespace Nop.Plugin.Payments.Qualpay.Domain.Platform
         public decimal? TrialAmount { get; set; }
 
         /// <summary>
-        /// Gets or sets Date Regular billing cycle will start.
+        /// Gets or sets date regular billing cycle will start.
         /// </summary>
         [JsonProperty(PropertyName = "recur_date_start")]
         public string RecurringDateStart { get; set; }
 
         /// <summary>
-        /// Gets or sets Date Regular billing cycle will end. 
+        /// Gets or sets date regular billing cycle will end. 
         /// </summary>
         [JsonProperty(PropertyName = "recur_date_end")]
         public string RecurringDateEnd { get; set; }
 
         /// <summary>
-        /// Gets or sets Regular Billing Amount. Amount should be a positive amount.
+        /// Gets or sets regular billing amount. Amount should be a positive amount.
         /// </summary>
         [JsonProperty(PropertyName = "recur_amt")]
         public decimal? RecurringAmount { get; set; }
 
         /// <summary>
-        /// Gets or sets Response from Gateway for one time set up fee transactions. Valid only when adding subscriptions with one time fee. 
+        /// Gets or sets response from gateway for one time set up fee transactions. Valid only when adding subscriptions with one time fee. 
         /// </summary>
         [JsonProperty(PropertyName = "response")]
         public TransactionResponse TransactionResponse { get; set; }
@@ -154,10 +160,10 @@ namespace Nop.Plugin.Payments.Qualpay.Domain.Platform
         /// Gets or sets the ISO numeric currency code for the transaction. 
         /// </summary>
         [JsonProperty(PropertyName = "tran_currency")]
-        public int CurrencyIsoCode { get; set; }
+        public int? CurrencyIsoCode { get; set; }
 
         /// <summary>
-        /// Gets or sets A short description of the plan, can be one off plan.
+        /// Gets or sets a short description of the plan, can be one off plan.
         /// </summary>
         [JsonProperty(PropertyName = "plan_desc")]
         public string PlanDescription { get; set; }
@@ -169,13 +175,13 @@ namespace Nop.Plugin.Payments.Qualpay.Domain.Platform
         public PlanFrequency? PlanFrequency { get; set; }
 
         /// <summary>
-        /// Gets or sets Number of billing cycles in the recurring transaction, -1 indicates bill until cancelled
+        /// Gets or sets number of billing cycles in the recurring transaction, -1 indicates bill until cancelled
         /// </summary>
         [JsonProperty(PropertyName = "plan_duration")]
         public int? PlanDuration { get; set; }
 
         /// <summary>
-        ///  Gets or sets Number of months in a subscription cycle. Applicable only for monthly frequency.
+        /// Gets or sets number of months in a subscription cycle. Applicable only for monthly frequency.
         /// </summary>
         [JsonProperty(PropertyName = "interval")]
         public int? Interval { get; set; }

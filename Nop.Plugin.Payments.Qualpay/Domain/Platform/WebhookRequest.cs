@@ -24,7 +24,7 @@ namespace Nop.Plugin.Payments.Qualpay.Domain.Platform
         public string WebhookNode { get; set; }
 
         /// <summary>
-        ///  Status of the webhook.
+        /// Gets or sets status of the webhook.
         /// </summary>
         [JsonProperty(PropertyName = "status")]
         [JsonConverter(typeof(StringEnumConverter))]
@@ -63,8 +63,8 @@ namespace Nop.Plugin.Payments.Qualpay.Domain.Platform
         /// <summary>
         /// Gets or sets a secret that will be used by Qualpay to generate the x-qualpay-webhook-signature header. Qualpay signs each webhook request using the x-qualpay-webhook-signature header. This signature can be used to validate that a request is initiated by Qualpay.  The signature is a Base 64 encoded HMAC-256 digest generated from the request payload using the webhook’s secret.This secret can be viewed only when adding a webhook. Use Qualpay manager to change the secret. 
         /// </summary>
-        [JsonProperty(PropertyName = "secret")]
-        public string Secret { get; set; }
+        [JsonProperty(PropertyName = "security_key")]
+        public string SecurityKey { get; set; }
 
         #endregion
     }

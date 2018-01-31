@@ -1,11 +1,11 @@
-﻿using System;
+﻿using System.Net;
 
 namespace Nop.Plugin.Payments.Qualpay.Domain.Platform
 {
     /// <summary>
-    /// Represents embedded key details
+    /// Represents Qualpay Customer Vault request to update customer card
     /// </summary>
-    public class EmbeddedKey : EmbeddedKeyRequest
+    public class UpdateCustomerCardRequest : BillingCardRequest
     {
         #region Methods
 
@@ -13,13 +13,13 @@ namespace Nop.Plugin.Payments.Qualpay.Domain.Platform
         /// Get a request path
         /// </summary>
         /// <returns>Request path</returns>
-        public override string GetRequestPath() => throw new NotImplementedException();
+        public override string GetRequestPath() => $"platform/vault/customer/{CustomerId}/billing";
 
         /// <summary>
         /// Get a request method
         /// </summary>
         /// <returns>Request method</returns>
-        public override string GetRequestMethod() => throw new NotImplementedException();
+        public override string GetRequestMethod() => WebRequestMethods.Http.Put;
 
         #endregion
     }

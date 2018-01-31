@@ -62,8 +62,8 @@ namespace Nop.Plugin.Payments.Qualpay.Controllers
                 return AccessDeniedView();
 
             //load settings for a chosen store scope
-            var storeScope = GetActiveStoreScopeConfiguration(_storeService, _workContext);
-            var settings = _settingService.LoadSetting<QualpaySettings>(storeScope);
+            var storeId = GetActiveStoreScopeConfiguration(_storeService, _workContext);
+            var settings = _settingService.LoadSetting<QualpaySettings>(storeId);
 
             //prepare model
             var model = new ConfigurationModel
@@ -72,23 +72,28 @@ namespace Nop.Plugin.Payments.Qualpay.Controllers
                 SecurityKey = settings.SecurityKey,
                 UseSandbox = settings.UseSandbox,
                 UseEmbeddedFields = settings.UseEmbeddedFields,
+                UseCustomerVault = settings.UseCustomerVault,
+                UseRecurringBilling = settings.UseRecurringBilling,
                 PaymentTransactionTypeId = (int)settings.PaymentTransactionType,
                 AdditionalFee = settings.AdditionalFee,
                 AdditionalFeePercentage = settings.AdditionalFeePercentage,
-                ActiveStoreScopeConfiguration = storeScope
+                ActiveStoreScopeConfiguration = storeId,
+                IsConfigured = !string.IsNullOrEmpty(settings.MerchantId) && long.TryParse(settings.MerchantId, out long merchantId)
             };
 
-            if (storeScope > 0)
+            if (storeId > 0)
             {
-                model.SecurityKey_OverrideForStore = _settingService.SettingExists(settings, x => x.SecurityKey, storeScope);
-                model.UseSandbox_OverrideForStore = _settingService.SettingExists(settings, x => x.UseSandbox, storeScope);
-                model.UseEmbeddedFields_OverrideForStore = _settingService.SettingExists(settings, x => x.UseEmbeddedFields, storeScope);
-                model.PaymentTransactionTypeId_OverrideForStore = _settingService.SettingExists(settings, x => x.PaymentTransactionType, storeScope);
-                model.AdditionalFee_OverrideForStore = _settingService.SettingExists(settings, x => x.AdditionalFee, storeScope);
-                model.AdditionalFeePercentage_OverrideForStore = _settingService.SettingExists(settings, x => x.AdditionalFeePercentage, storeScope);
+                model.SecurityKey_OverrideForStore = _settingService.SettingExists(settings, x => x.SecurityKey, storeId);
+                model.UseSandbox_OverrideForStore = _settingService.SettingExists(settings, x => x.UseSandbox, storeId);
+                model.UseEmbeddedFields_OverrideForStore = _settingService.SettingExists(settings, x => x.UseEmbeddedFields, storeId);
+                model.UseCustomerVault_OverrideForStore = _settingService.SettingExists(settings, x => x.UseCustomerVault, storeId);
+                model.UseRecurringBilling_OverrideForStore = _settingService.SettingExists(settings, x => x.UseRecurringBilling, storeId);
+                model.PaymentTransactionTypeId_OverrideForStore = _settingService.SettingExists(settings, x => x.PaymentTransactionType, storeId);
+                model.AdditionalFee_OverrideForStore = _settingService.SettingExists(settings, x => x.AdditionalFee, storeId);
+                model.AdditionalFeePercentage_OverrideForStore = _settingService.SettingExists(settings, x => x.AdditionalFeePercentage, storeId);
             }
 
-            //prepare payment transaction modes
+            //prepare payment transaction types
             model.PaymentTransactionTypes.Add(new SelectListItem
             {
                 Text = TransactionType.Authorization.GetLocalizedEnum(_localizationService, _workContext),
@@ -113,14 +118,42 @@ namespace Nop.Plugin.Payments.Qualpay.Controllers
                 return Configure();
 
             //load settings for a chosen store scope
-            var storeScope = GetActiveStoreScopeConfiguration(_storeService, _workContext);
-            var settings = _settingService.LoadSetting<QualpaySettings>(storeScope);
+            var storeId = GetActiveStoreScopeConfiguration(_storeService, _workContext);
+            var settings = _settingService.LoadSetting<QualpaySettings>(storeId);
+
+            //ensure that webhook is already exists and create the new one if does not (required for recurring billing)
+            if (model.UseRecurringBilling &&
+                (string.IsNullOrEmpty(settings.WebhookId) || _qualpayManager.GetWebhookById(settings.WebhookId)?.Status != WebhookStatus.Active))
+            {
+                var webhook = _qualpayManager.CreateWebhook(new CreateWebhookRequest
+                {
+                    EmailAddress = new[] { _emailAccountService.GetEmailAccountById(_emailAccountSettings.DefaultEmailAccountId)?.Email },
+                    Events = new[]
+                    {
+                        QualpayDefaults.SubscriptionPaymentFailureWebhookEvent,
+                        QualpayDefaults.SubscriptionPaymentSuccessWebhookEvent,
+                        QualpayDefaults.ValidateUrlWebhookEvent
+                    },
+                    Label = QualpayDefaults.WebhookLabel,
+                    NotificationUrl = Url.RouteUrl(QualpayDefaults.WebhookRouteName, null, Uri.UriSchemeHttps),
+                    Status = WebhookStatus.Active
+                });
+                if (webhook?.WebhookId != null)
+                {
+                    settings.WebhookId = webhook.WebhookId.ToString();
+                    settings.WebhookSecretKey = webhook.SecurityKey;
+                }
+                else
+                    WarningNotification(_localizationService.GetResource("Plugins.Payments.Qualpay.Fields.Webhook.Warning"));
+            }
 
             //save settings
             settings.MerchantId = model.MerchantId;
             settings.SecurityKey = model.SecurityKey;
             settings.UseSandbox = model.UseSandbox;
             settings.UseEmbeddedFields = model.UseEmbeddedFields;
+            settings.UseCustomerVault = model.UseCustomerVault;
+            settings.UseRecurringBilling = model.UseRecurringBilling;
             settings.PaymentTransactionType = (TransactionType)model.PaymentTransactionTypeId;
             settings.AdditionalFee = model.AdditionalFee;
             settings.AdditionalFeePercentage = model.AdditionalFeePercentage;
@@ -128,52 +161,23 @@ namespace Nop.Plugin.Payments.Qualpay.Controllers
             /* We do not clear cache after each setting update.
              * This behavior can increase performance because cached settings will not be cleared 
              * and loaded from database after each update */
-            _settingService.SaveSetting(settings, x => x.MerchantId, storeScope, false);
-            _settingService.SaveSettingOverridablePerStore(settings, x => x.SecurityKey, model.SecurityKey_OverrideForStore, storeScope, false);
-            _settingService.SaveSettingOverridablePerStore(settings, x => x.UseSandbox, model.UseSandbox_OverrideForStore, storeScope, false);
-            _settingService.SaveSettingOverridablePerStore(settings, x => x.UseEmbeddedFields, model.UseEmbeddedFields_OverrideForStore, storeScope, false);
-            _settingService.SaveSettingOverridablePerStore(settings, x => x.PaymentTransactionType, model.PaymentTransactionTypeId_OverrideForStore, storeScope, false);
-            _settingService.SaveSettingOverridablePerStore(settings, x => x.AdditionalFee, model.AdditionalFee_OverrideForStore, storeScope, false);
-            _settingService.SaveSettingOverridablePerStore(settings, x => x.AdditionalFeePercentage, model.AdditionalFeePercentage_OverrideForStore, storeScope, false);
+            _settingService.SaveSetting(settings, x => x.MerchantId, storeId, false);
+            _settingService.SaveSettingOverridablePerStore(settings, x => x.SecurityKey, model.SecurityKey_OverrideForStore, storeId, false);
+            _settingService.SaveSettingOverridablePerStore(settings, x => x.UseSandbox, model.UseSandbox_OverrideForStore, storeId, false);
+            _settingService.SaveSettingOverridablePerStore(settings, x => x.UseEmbeddedFields, model.UseEmbeddedFields_OverrideForStore, storeId, false);
+            _settingService.SaveSettingOverridablePerStore(settings, x => x.UseCustomerVault, model.UseCustomerVault_OverrideForStore, storeId, false);
+            _settingService.SaveSettingOverridablePerStore(settings, x => x.UseRecurringBilling, model.UseRecurringBilling_OverrideForStore, storeId, false);
+            _settingService.SaveSettingOverridablePerStore(settings, x => x.PaymentTransactionType, model.PaymentTransactionTypeId_OverrideForStore, storeId, false);
+            _settingService.SaveSettingOverridablePerStore(settings, x => x.AdditionalFee, model.AdditionalFee_OverrideForStore, storeId, false);
+            _settingService.SaveSettingOverridablePerStore(settings, x => x.AdditionalFeePercentage, model.AdditionalFeePercentage_OverrideForStore, storeId, false);
+            _settingService.SaveSetting(settings, x => x.WebhookId, storeId, false);
+            _settingService.SaveSetting(settings, x => x.WebhookSecretKey, storeId, false);
 
             //now clear settings cache and display notification
             _settingService.ClearCache();
             SuccessNotification(_localizationService.GetResource("Admin.Plugins.Saved"));
 
-            //ensure that webhook is already exists and create the new one if does not
-            var webhook = _qualpayManager.GetWebhook() ?? _qualpayManager.CreateWebhook(new CreateWebhookRequest
-            {
-                EmailAddress = new[] { _emailAccountService.GetEmailAccountById(_emailAccountSettings.DefaultEmailAccountId)?.Email },
-                Events = new[]
-                {
-                    QualpayDefaults.SubscriptionCompleteWebhookEvent,
-                    QualpayDefaults.SubscriptionPaymentFailureWebhookEvent,
-                    QualpayDefaults.SubscriptionPaymentSuccessWebhookEvent,
-                    QualpayDefaults.SubscriptionSuspendedWebhookEvent,
-                    QualpayDefaults.ValidateUrlWebhookEvent
-                },
-                Label = QualpayDefaults.WebhookLabel,
-                NotificationUrl = Url.RouteUrl(QualpayDefaults.WebhookRouteName, null, Uri.UriSchemeHttps),
-                Status = WebhookStatus.Active
-            });
-
-            if (webhook?.WebhookId != null)
-            {
-                settings.WebhookId = webhook.WebhookId.ToString();
-                _settingService.SaveSetting(settings, x => x.WebhookId, storeScope);
-            }
-            else
-                WarningNotification(_localizationService.GetResource("Plugins.Payments.Qualpay.Fields.Webhook.Warning"));
-
             return Configure();
-        }
-
-        [HttpPost]
-        public IActionResult WebhookHandler()
-        {
-            var isValid = _qualpayManager.ValidateWebhook(this.Request);
-
-            return Ok();
         }
 
         #endregion

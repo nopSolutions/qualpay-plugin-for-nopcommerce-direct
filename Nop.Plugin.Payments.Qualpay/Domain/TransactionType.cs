@@ -2,7 +2,7 @@
 namespace Nop.Plugin.Payments.Qualpay.Domain
 {
     /// <summary>
-    /// Represents enumeration of request types
+    /// Represents transaction types enumeration
     /// </summary>
     public enum TransactionType
     {

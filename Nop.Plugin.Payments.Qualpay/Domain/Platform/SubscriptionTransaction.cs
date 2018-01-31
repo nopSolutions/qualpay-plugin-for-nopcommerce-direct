@@ -3,9 +3,9 @@
 namespace Nop.Plugin.Payments.Qualpay.Domain.Platform
 {
     /// <summary>
-    /// Represents embedded key details
+    /// Represents subscription transaction details
     /// </summary>
-    public class EmbeddedKey : EmbeddedKeyRequest
+    public class SubscriptionTransaction : SubscriptionTransactionRequest
     {
         #region Methods
 

@@ -3,7 +3,7 @@
 namespace Nop.Plugin.Payments.Qualpay.Domain.PaymentGateway
 {
     /// <summary>
-    /// Represents enumeration of item credit types
+    /// Represents item credit types enumeration
     /// </summary>
     public enum ItemCreditType
     {

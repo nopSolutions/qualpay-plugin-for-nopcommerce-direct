@@ -153,7 +153,7 @@ namespace Nop.Plugin.Payments.Qualpay.Domain.PaymentGateway
         /// Gets or sets the ISO numeric currency code for the transaction. 
         /// </summary>
         [JsonProperty(PropertyName = "tran_currency")]
-        public int CurrencyIsoCode { get; set; }
+        public int? CurrencyIsoCode { get; set; }
 
         /// <summary>
         /// Gets or sets a CAVV returned from the merchants 3DS MPI (Base64 encoded).

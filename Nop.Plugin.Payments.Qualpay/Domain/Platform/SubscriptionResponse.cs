@@ -10,7 +10,7 @@ namespace Nop.Plugin.Payments.Qualpay.Domain.Platform
         #region Properties
 
         /// <summary>
-        /// Gets or sets Vault customer details
+        /// Gets or sets subscription details
         /// </summary>
         [JsonProperty(PropertyName = "data")]
         public Subscription Subscription { get; set; }

@@ -1,14 +1,17 @@
-﻿using System.Linq;
+﻿using System;
+using System.Linq;
 using Microsoft.AspNetCore.Html;
 using Microsoft.AspNetCore.Mvc.Rendering;
 using Microsoft.AspNetCore.Routing;
 using Nop.Core.Domain.Customers;
+using Nop.Core.Domain.Orders;
 using Nop.Core.Domain.Payments;
-using Nop.Plugin.Payments.Qualpay.Domain.Platform;
+using Nop.Core.Events;
 using Nop.Plugin.Payments.Qualpay.Models.Customer;
 using Nop.Services.Customers;
 using Nop.Services.Events;
 using Nop.Services.Localization;
+using Nop.Services.Orders;
 using Nop.Services.Payments;
 using Nop.Web.Areas.Admin.Models.Customers;
 using Nop.Web.Framework.Events;
@@ -18,19 +21,22 @@ using Nop.Web.Framework.UI;
 namespace Nop.Plugin.Payments.Qualpay.Services
 {
     /// <summary>
-    /// Represents event consumer of the Qualpay payment plugin
+    /// Represents plugin event consumer
     /// </summary>
     public class EventConsumer :
         IConsumer<AdminTabStripCreated>,
+        IConsumer<EntityInserted<RecurringPayment>>,
         IConsumer<PageRenderingEvent>
     {
         #region Fields
 
         private readonly ICustomerService _customerService;
         private readonly ILocalizationService _localizationService;
+        private readonly IOrderService _orderService;
         private readonly IPaymentService _paymentService;
         private readonly PaymentSettings _paymentSettings;
         private readonly QualpayManager _qualpayManager;
+        private readonly QualpaySettings _qualpaySettings;
 
         #endregion
 
@@ -38,15 +44,19 @@ namespace Nop.Plugin.Payments.Qualpay.Services
 
         public EventConsumer(ICustomerService customerService,
             ILocalizationService localizationService,
+            IOrderService orderService,
             IPaymentService paymentService,
             PaymentSettings paymentSettings,
-            QualpayManager qualpayManager)
+            QualpayManager qualpayManager,
+            QualpaySettings qualpaySettings)
         {
             this._customerService = customerService;
             this._localizationService = localizationService;
+            this._orderService = orderService;
             this._paymentService = paymentService;
             this._paymentSettings = paymentSettings;
             this._qualpayManager = qualpayManager;
+            this._qualpaySettings = qualpaySettings;
         }
 
         #endregion
@@ -70,6 +80,10 @@ namespace Nop.Plugin.Payments.Qualpay.Services
 
             //check whether the payment plugin is installed and is active
             if (!_paymentService.LoadPaymentMethodBySystemName(QualpayDefaults.SystemName)?.IsPaymentMethodActive(_paymentSettings) ?? true)
+                return;
+
+            //whether Qualpay Customer Vault feature is enabled
+            if (!_qualpaySettings.UseCustomerVault)
                 return;
 
             //get the view model
@@ -116,6 +130,26 @@ namespace Nop.Plugin.Payments.Qualpay.Services
 
             //add this tab as a block to render on the customer details page
             eventMessage.BlocksToRender.Add(qualpayCustomerTab);
+        }
+
+        /// <summary>
+        /// Recurring payment inserted event
+        /// </summary>
+        /// <param name="eventMessage">Event message</param>
+        public void HandleEvent(EntityInserted<RecurringPayment> eventMessage)
+        {
+            var recurringPayment = eventMessage?.Entity;
+            if (recurringPayment == null)
+                return;
+
+            //add first payment to history right after creating recurring payment
+            recurringPayment.RecurringPaymentHistory.Add(new RecurringPaymentHistory
+            {
+                RecurringPayment = recurringPayment,
+                CreatedOnUtc = DateTime.UtcNow,
+                OrderId = recurringPayment.InitialOrderId,
+            });
+            _orderService.UpdateRecurringPayment(recurringPayment);
         }
 
         /// <summary>

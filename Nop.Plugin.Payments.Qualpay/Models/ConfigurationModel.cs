@@ -24,6 +24,8 @@ namespace Nop.Plugin.Payments.Qualpay.Models
 
         public int ActiveStoreScopeConfiguration { get; set; }
 
+        public bool IsConfigured { get; set; }
+
         [NopResourceDisplayName("Plugins.Payments.Qualpay.Fields.MerchantId")]
         public string MerchantId { get; set; }
 
@@ -41,9 +43,17 @@ namespace Nop.Plugin.Payments.Qualpay.Models
         public bool UseEmbeddedFields { get; set; }
         public bool UseEmbeddedFields_OverrideForStore { get; set; }
 
+        [NopResourceDisplayName("Plugins.Payments.Qualpay.Fields.UseCustomerVault")]
+        public bool UseCustomerVault { get; set; }
+        public bool UseCustomerVault_OverrideForStore { get; set; }
+
+        [NopResourceDisplayName("Plugins.Payments.Qualpay.Fields.UseRecurringBilling")]
+        public bool UseRecurringBilling { get; set; }
+        public bool UseRecurringBilling_OverrideForStore { get; set; }
+
+        [NopResourceDisplayName("Plugins.Payments.Qualpay.Fields.PaymentTransactionType")]
         public int PaymentTransactionTypeId { get; set; }
         public bool PaymentTransactionTypeId_OverrideForStore { get; set; }
-        [NopResourceDisplayName("Plugins.Payments.Qualpay.Fields.PaymentTransactionType")]
         public IList<SelectListItem> PaymentTransactionTypes { get; set; }
 
         [NopResourceDisplayName("Plugins.Payments.Qualpay.Fields.AdditionalFee")]

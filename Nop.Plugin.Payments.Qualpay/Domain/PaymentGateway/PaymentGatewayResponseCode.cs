@@ -29,7 +29,7 @@ namespace Nop.Plugin.Payments.Qualpay.Domain.PaymentGateway
         /// The transaction ID value could not be linked to a valid transaction
         /// </summary>
         [EnumMember(Value = "102")]
-        InvalidtransactionId,
+        InvalidTransactionId,
 
         /// <summary>
         /// The request was missing valid cardholder data
@@ -95,7 +95,7 @@ namespace Nop.Plugin.Payments.Qualpay.Domain.PaymentGateway
         /// The transaction has already been captured or voided
         /// </summary>
         [EnumMember(Value = "401")]
-        Voidfailed,
+        VoidFailed,
 
         /// <summary>
         /// The transaction has already been refunded, the original transaction has not been captured, 

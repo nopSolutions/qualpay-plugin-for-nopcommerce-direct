@@ -90,7 +90,7 @@ namespace Nop.Plugin.Payments.Qualpay.Controllers
             var customer = _customerService.GetCustomerById(customerId)
                 ?? throw new ArgumentException("No customer found with the specified id", nameof(customerId));
 
-            //check whether customer is already exists in the Vault and try to create if does not exist
+            //check whether customer is already exists in the Vault and try to create new one if does not exist
             var vaultCustomer = _qualpayManager.GetCustomerById(customer.Id.ToString())
                 ?? _qualpayManager.CreateCustomer(CreateCustomerRequest(customer))
                 ?? throw new NopException("Qualpay Customer Vault error: Failed to create customer. Error details in the log");
@@ -111,9 +111,9 @@ namespace Nop.Plugin.Payments.Qualpay.Controllers
             var customer = _customerService.GetCustomerById(customerId)
                 ?? throw new ArgumentException("No customer found with the specified id", nameof(customerId));
 
-            //try to get customer billing cards details
-            var billingCards = _qualpayManager.GetCustomerCards(customer.Id.ToString())
-                ?.Where(card => card != null)?.ToList() ?? new List<BillingCard>();
+            //try to get customer billing cards
+            var billingCards = _qualpayManager.GetCustomerCards(customer.Id.ToString())?.Where(card => card != null)?.ToList()
+                ?? new List<BillingCard>();
 
             //prepare grid model
             var gridModel = new DataSourceResult

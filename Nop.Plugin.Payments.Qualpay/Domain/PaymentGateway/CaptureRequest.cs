@@ -20,7 +20,7 @@ namespace Nop.Plugin.Payments.Qualpay.Domain.PaymentGateway
         /// Gets or sets the total amount of the transaction to capture (if different than original authorization amount). Partial captures are allowed here if the capture amount is less than the authorized amount.
         /// </summary>
         [JsonProperty(PropertyName = "amt_tran")]
-        public decimal Amount { get; set; }
+        public decimal? Amount { get; set; }
 
         /// <summary>
         /// Gets or sets an identifier of vendor to which this capture request applies.

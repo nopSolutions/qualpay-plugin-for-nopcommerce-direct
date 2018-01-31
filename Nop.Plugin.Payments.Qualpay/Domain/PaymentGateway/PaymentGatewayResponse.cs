@@ -64,7 +64,7 @@ namespace Nop.Plugin.Payments.Qualpay.Domain.PaymentGateway
         /// Gets or sets the transaction amount from the request message. 
         /// </summary>
         [JsonProperty(PropertyName = "amt_tran")]
-        public decimal Amount { get; set; }
+        public decimal? Amount { get; set; }
 
         /// <summary>
         /// Gets or sets collection of the result of the batch close by currency and location

@@ -14,7 +14,7 @@ namespace Nop.Plugin.Payments.Qualpay.Domain.PaymentGateway
         /// Gets or sets the count of items 
         /// </summary>
         [JsonProperty(PropertyName = "quantity")]
-        public int Quantity { get; set; }
+        public int? Quantity { get; set; }
 
         /// <summary>
         /// Gets or sets the description of item
@@ -45,19 +45,19 @@ namespace Nop.Plugin.Payments.Qualpay.Domain.PaymentGateway
         /// Gets or sets the cost per unit
         /// </summary>
         [JsonProperty(PropertyName = "unit_cost")]
-        public decimal UnitPrice { get; set; }
+        public decimal? UnitPrice { get; set; }
 
         /// <summary>
         /// Gets or sets the type of supply (Visa only)
         /// </summary>
         [JsonProperty(PropertyName = "type_of_supply ")]
-        public string SupplyType { get; set; }
+        public string VisaSupplyType { get; set; }
 
         /// <summary>
         /// Gets or sets the code used to categorize purchased item (Visa only)
         /// </summary>
         [JsonProperty(PropertyName = "commodity_code ")]
-        public string CommodityCode { get; set; }
+        public string VisaCommodityCode { get; set; }
 
         #endregion
     }

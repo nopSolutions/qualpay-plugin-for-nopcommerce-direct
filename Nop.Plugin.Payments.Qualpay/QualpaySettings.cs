@@ -24,9 +24,19 @@ namespace Nop.Plugin.Payments.Qualpay
         public bool UseSandbox { get; set; }
 
         /// <summary>
-        /// Gets or sets a value indicating whether to use Qualpay Embedded Fields
+        /// Gets or sets a value indicating whether to use Qualpay Embedded Fields feature
         /// </summary>
         public bool UseEmbeddedFields { get; set; }
+
+        /// <summary>
+        /// Gets or sets a value indicating whether to use Qualpay Customer Vault feature
+        /// </summary>
+        public bool UseCustomerVault { get; set; }
+
+        /// <summary>
+        /// Gets or sets a value indicating whether to use Qualpay Recurring Billing feature
+        /// </summary>
+        public bool UseRecurringBilling { get; set; }
 
         /// <summary>
         /// Gets or sets the payment transaction type (authorization only or authorization and capture in a single request)
@@ -47,5 +57,10 @@ namespace Nop.Plugin.Payments.Qualpay
         /// Gets or sets a webhook identifier
         /// </summary>
         public string WebhookId { get; set; }
+
+        /// <summary>
+        /// Gets or sets a webhook secret key
+        /// </summary>
+        public string WebhookSecretKey { get; set; }
     }
 }

@@ -3,7 +3,7 @@
 namespace Nop.Plugin.Payments.Qualpay.Domain.Platform
 {
     /// <summary>
-    /// Represents response from Qualpay Webhook
+    /// Represents response to webhook requests
     /// </summary>
     public class WebhookResponse : PlatformResponse
     {

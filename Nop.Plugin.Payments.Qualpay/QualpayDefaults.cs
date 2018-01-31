@@ -2,7 +2,7 @@
 namespace Nop.Plugin.Payments.Qualpay
 {
     /// <summary>
-    /// Represents constants of the Qualpay payment plugin
+    /// Represents Qualpay payment gateway constants
     /// </summary>
     public class QualpayDefaults
     {

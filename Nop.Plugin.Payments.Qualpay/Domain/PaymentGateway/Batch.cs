@@ -25,25 +25,25 @@ namespace Nop.Plugin.Payments.Qualpay.Domain.PaymentGateway
         /// Gets or sets a batch number. 
         /// </summary>
         [JsonProperty(PropertyName = "batch_number")]
-        public int BatchId { get; set; }
+        public int? BatchId { get; set; }
 
         /// <summary>
         /// Gets or sets the total number of transactions
         /// </summary>
         [JsonProperty(PropertyName = "cnt_total")]
-        public int TransactionNumber { get; set; }
+        public int? TransactionNumber { get; set; }
 
         /// <summary>
         /// Gets or sets the ISO numeric currency code for the transaction. 
         /// </summary>
         [JsonProperty(PropertyName = "tran_currency")]
-        public int CurrencyIsoCode { get; set; }
+        public int? CurrencyIsoCode { get; set; }
 
         /// <summary>
         /// Gets or sets purchases minus returns(can be a negative number).
         /// </summary>
         [JsonProperty(PropertyName = "amt_total")]
-        public decimal Amount { get; set; }
+        public decimal? Amount { get; set; }
 
         #endregion
     }
