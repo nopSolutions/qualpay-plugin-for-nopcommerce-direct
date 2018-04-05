@@ -62,5 +62,10 @@ namespace Nop.Plugin.Payments.Qualpay
         /// Gets or sets a webhook secret key
         /// </summary>
         public string WebhookSecretKey { get; set; }
+
+        /// <summary>
+        /// Gets or sets a merchant email
+        /// </summary>
+        public string MerchantEmail { get; set; }
     }
 }

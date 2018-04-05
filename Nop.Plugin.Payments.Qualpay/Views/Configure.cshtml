@@ -11,11 +11,32 @@
         <div class="panel panel-default">
             <div class="panel-body">
                 <p>
+                    Please enter your email to receive an information about special offers from Qualpay
+                </p>
+                <div class="form-group">
+                    <div class="col-md-3">
+                        <nop-label asp-for="MerchantEmail" />
+                    </div>
+                    <div class="col-md-9">
+                        <nop-editor asp-for="MerchantEmail" />
+                        <span asp-validation-for="MerchantEmail"></span>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <div class="col-md-9 col-md-offset-3">
+                        <input type="submit" name="subscribe" class="btn btn-primary" value="@T("Plugins.Payments.Qualpay.Subscribe")" />
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="panel panel-default">
+            <div class="panel-body">
+                <p>
                     For plugin configuration follow these steps:<br />
                     <br />
                     1. <a href="http://www.qualpay.com/nopcommerce" target="_blank">Create Qualpay account</a><br />
                     2. Log in at the <a href="https://app.qualpay.com/" target="_blank">production service</a>
-                    or at the <a href="https://app-test.qualpay.com/ target=" _blank"> sandbox service</a><br />
+                    or at the <a href="https://app-test.qualpay.com/" target="_blank"> sandbox service</a><br />
                     3. Go to the 'Administration' -> 'API Security Keys' and find Security Key<br />
                     4. Fill in your Qualpay Payment Gateway credentials below<br />
                     5. Save<br />

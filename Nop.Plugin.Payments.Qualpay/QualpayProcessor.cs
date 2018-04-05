@@ -817,6 +817,8 @@ namespace Nop.Plugin.Payments.Qualpay
             this.AddOrUpdatePluginLocaleResource("Plugins.Payments.Qualpay.Fields.AdditionalFee.Hint", "Enter additional fee to charge your customers.");
             this.AddOrUpdatePluginLocaleResource("Plugins.Payments.Qualpay.Fields.AdditionalFeePercentage", "Additional fee. Use percentage");
             this.AddOrUpdatePluginLocaleResource("Plugins.Payments.Qualpay.Fields.AdditionalFeePercentage.Hint", "Determine whether to apply a percentage additional fee to the order total. If not enabled, a fixed value is used.");
+            this.AddOrUpdatePluginLocaleResource("Plugins.Payments.Qualpay.Fields.MerchantEmail", "Email");
+            this.AddOrUpdatePluginLocaleResource("Plugins.Payments.Qualpay.Fields.MerchantEmail.Hint", "Enter your email to subscribe to Qualpay news.");
             this.AddOrUpdatePluginLocaleResource("Plugins.Payments.Qualpay.Fields.MerchantId", "Merchant ID");
             this.AddOrUpdatePluginLocaleResource("Plugins.Payments.Qualpay.Fields.MerchantId.Hint", "Specify your Qualpay merchant identifier.");
             this.AddOrUpdatePluginLocaleResource("Plugins.Payments.Qualpay.Fields.PaymentTransactionType", "Transaction type");
@@ -833,6 +835,10 @@ namespace Nop.Plugin.Payments.Qualpay
             this.AddOrUpdatePluginLocaleResource("Plugins.Payments.Qualpay.Fields.UseSandbox.Hint", "Determine whether to enable sandbox (testing environment).");
             this.AddOrUpdatePluginLocaleResource("Plugins.Payments.Qualpay.Fields.Webhook.Warning", "Webhook was not created (you'll not be able to handle recurring payments)");
             this.AddOrUpdatePluginLocaleResource("Plugins.Payments.Qualpay.PaymentMethodDescription", "Pay by credit / debit card using Qualpay payment gateway");
+            this.AddOrUpdatePluginLocaleResource("Plugins.Payments.Qualpay.Subscribe", "Stay informed");
+            this.AddOrUpdatePluginLocaleResource("Plugins.Payments.Qualpay.Subscribe.Error", "An error has occurred, details in the log");
+            this.AddOrUpdatePluginLocaleResource("Plugins.Payments.Qualpay.Subscribe.Success", "You have subscribed to Qualpay news");
+            this.AddOrUpdatePluginLocaleResource("Plugins.Payments.Qualpay.Unsubscribe.Success", "You have unsubscribed from Qualpay news");
 
             base.Install();
         }
@@ -864,6 +870,8 @@ namespace Nop.Plugin.Payments.Qualpay
             this.DeletePluginLocaleResource("Plugins.Payments.Qualpay.Fields.AdditionalFee.Hint");
             this.DeletePluginLocaleResource("Plugins.Payments.Qualpay.Fields.AdditionalFeePercentage");
             this.DeletePluginLocaleResource("Plugins.Payments.Qualpay.Fields.AdditionalFeePercentage.Hint");
+            this.DeletePluginLocaleResource("Plugins.Payments.Qualpay.Fields.MerchantEmail");
+            this.DeletePluginLocaleResource("Plugins.Payments.Qualpay.Fields.MerchantEmail.Hint");
             this.DeletePluginLocaleResource("Plugins.Payments.Qualpay.Fields.MerchantId");
             this.DeletePluginLocaleResource("Plugins.Payments.Qualpay.Fields.MerchantId.Hint");
             this.DeletePluginLocaleResource("Plugins.Payments.Qualpay.Fields.PaymentTransactionType");
@@ -880,6 +888,10 @@ namespace Nop.Plugin.Payments.Qualpay
             this.DeletePluginLocaleResource("Plugins.Payments.Qualpay.Fields.UseSandbox.Hint");
             this.DeletePluginLocaleResource("Plugins.Payments.Qualpay.Fields.Webhook.Warning");
             this.DeletePluginLocaleResource("Plugins.Payments.Qualpay.PaymentMethodDescription");
+            this.DeletePluginLocaleResource("Plugins.Payments.Qualpay.Subscribe");
+            this.DeletePluginLocaleResource("Plugins.Payments.Qualpay.Subscribe.Error");
+            this.DeletePluginLocaleResource("Plugins.Payments.Qualpay.Subscribe.Success");
+            this.DeletePluginLocaleResource("Plugins.Payments.Qualpay.Unsubscribe.Success");
 
             base.Uninstall();
         }

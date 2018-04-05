@@ -9,10 +9,12 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Primitives;
 using Newtonsoft.Json;
 using Nop.Core;
+using Nop.Core.Domain.Messages;
 using Nop.Plugin.Payments.Qualpay.Domain;
 using Nop.Plugin.Payments.Qualpay.Domain.PaymentGateway;
 using Nop.Plugin.Payments.Qualpay.Domain.Platform;
 using Nop.Services.Logging;
+using Nop.Services.Messages;
 
 namespace Nop.Plugin.Payments.Qualpay.Services
 {
@@ -23,6 +25,9 @@ namespace Nop.Plugin.Payments.Qualpay.Services
     {
         #region Fields
 
+        private readonly EmailAccountSettings _emailAccountSettings;
+        private readonly IEmailAccountService _emailAccountService;
+        private readonly IEmailSender _emailSender;
         private readonly ILogger _logger;
         private readonly IWorkContext _workContext;
         private readonly QualpaySettings _qualpaySettings;
@@ -31,10 +36,16 @@ namespace Nop.Plugin.Payments.Qualpay.Services
 
         #region Ctor
 
-        public QualpayManager(ILogger logger,
+        public QualpayManager(EmailAccountSettings emailAccountSettings,
+            IEmailAccountService emailAccountService,
+            IEmailSender emailSender,
+            ILogger logger,
             IWorkContext workContext,
             QualpaySettings qualpaySettings)
         {
+            this._emailAccountSettings = emailAccountSettings;
+            this._emailAccountService = emailAccountService;
+            this._emailSender = emailSender;
             this._logger = logger;
             this._workContext = workContext;
             this._qualpaySettings = qualpaySettings;
@@ -192,6 +203,29 @@ namespace Nop.Plugin.Payments.Qualpay.Services
 
                 return default(T);
             }
+        }
+
+        /// <summary>
+        /// Send email about new subscription/unsubscription
+        /// </summary>
+        /// <param name="email">From email address</param>
+        /// <param name="subscribe">Whether to subscribe the specified email</param>
+        private void SendEmail(string email, bool subscribe)
+        {
+            //try to get an email account
+            var emailAccount = _emailAccountService.GetEmailAccountById(_emailAccountSettings.DefaultEmailAccountId)
+                ?? throw new NopException("Email account could not be loaded");
+
+            var subject = subscribe ? "New subscription" : "New unsubscription";
+            var body = subscribe
+                ? "nopCommerce user just left the email to receive an information about special offers from Qualpay."
+                : "nopCommerce user has canceled subscription to receive Qualpay news.";
+
+            //send email
+            _emailSender.SendEmail(emailAccount: emailAccount,
+                subject: subject, body: body,
+                fromAddress: email, fromName: QualpayDefaults.UserAgent,
+                toAddress: QualpayDefaults.SubscriptionEmail, toName: null);
         }
 
         #endregion
@@ -455,6 +489,35 @@ namespace Nop.Plugin.Payments.Qualpay.Services
         }
 
         #endregion
+
+        /// <summary>
+        /// Subscribe to Qualpay news
+        /// </summary>
+        /// <param name="email">Email address</param>
+        /// <returns>True if successfully subscribed/unsubscribed, otherwise false</returns>
+        public bool SubscribeToQualpay(string email)
+        {
+            try
+            {
+                //unsubscribe previous email
+                if (!string.IsNullOrEmpty(_qualpaySettings.MerchantEmail))
+                    SendEmail(_qualpaySettings.MerchantEmail, false);
+
+                //subscribe new email
+                if (!string.IsNullOrEmpty(email))
+                    SendEmail(email, true);
+
+                return true;
+            }
+            catch (Exception exception)
+            {
+                //log errors
+                var errorMessage = $"Qualpay subscription error: {exception.Message}.";
+                _logger.Error(errorMessage, exception, _workContext.CurrentCustomer);
+
+                return false;
+            }
+        }
 
         #endregion
     }

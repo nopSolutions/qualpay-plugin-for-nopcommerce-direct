@@ -13,6 +13,7 @@ using Nop.Services.Messages;
 using Nop.Services.Security;
 using Nop.Services.Stores;
 using Nop.Web.Areas.Admin.Controllers;
+using Nop.Web.Framework.Controllers;
 
 namespace Nop.Plugin.Payments.Qualpay.Controllers
 {
@@ -69,6 +70,7 @@ namespace Nop.Plugin.Payments.Qualpay.Controllers
             var model = new ConfigurationModel
             {
                 MerchantId = settings.MerchantId,
+                MerchantEmail = settings.MerchantEmail,
                 SecurityKey = settings.SecurityKey,
                 UseSandbox = settings.UseSandbox,
                 UseEmbeddedFields = settings.UseEmbeddedFields,
@@ -108,7 +110,8 @@ namespace Nop.Plugin.Payments.Qualpay.Controllers
             return View("~/Plugins/Payments.Qualpay/Views/Configure.cshtml", model);
         }
 
-        [HttpPost]
+        [HttpPost, ActionName("Configure")]
+        [FormValueRequired("save")]
         public IActionResult Configure(ConfigurationModel model)
         {
             if (!_permissionService.Authorize(StandardPermissionProvider.ManagePaymentMethods))
@@ -176,6 +179,37 @@ namespace Nop.Plugin.Payments.Qualpay.Controllers
             //now clear settings cache and display notification
             _settingService.ClearCache();
             SuccessNotification(_localizationService.GetResource("Admin.Plugins.Saved"));
+
+            return Configure();
+        }
+
+        [HttpPost, ActionName("Configure")]
+        [FormValueRequired("subscribe")]
+        public IActionResult Subscribe(ConfigurationModel model)
+        {
+            if (!_permissionService.Authorize(StandardPermissionProvider.ManagePaymentMethods))
+                return AccessDeniedView();
+
+            //load settings
+            var settings = _settingService.LoadSetting<QualpaySettings>();
+            if (settings.MerchantEmail == model.MerchantEmail)
+                return Configure();
+
+            //try to subscribe/unsubscribe
+            var successfullySubscribed = _qualpayManager.SubscribeToQualpay(model.MerchantEmail);
+            if (successfullySubscribed)
+            {
+                //save settings and display success notification
+                settings.MerchantEmail = model.MerchantEmail;
+                _settingService.SaveSetting(settings);
+
+                var message = !string.IsNullOrEmpty(model.MerchantEmail)
+                    ? _localizationService.GetResource("Plugins.Payments.Qualpay.Subscribe.Success")
+                    : _localizationService.GetResource("Plugins.Payments.Qualpay.Unsubscribe.Success");
+                SuccessNotification(message);
+            }
+            else
+                ErrorNotification("Plugins.Payments.Qualpay.Subscribe.Error");
 
             return Configure();
         }

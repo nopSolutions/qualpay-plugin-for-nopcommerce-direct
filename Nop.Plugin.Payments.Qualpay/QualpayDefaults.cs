@@ -85,5 +85,10 @@ namespace Nop.Plugin.Payments.Qualpay
         /// Webhook signature header name
         /// </summary>
         public static string WebhookSignatureHeaderName => "x-qualpay-webhook-signature";
+
+        /// <summary>
+        /// Subscription email
+        /// </summary>
+        public static string SubscriptionEmail => "jgilbert@qualpay.com";
     }
 }

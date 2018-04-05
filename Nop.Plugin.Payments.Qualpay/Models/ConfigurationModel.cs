@@ -64,6 +64,10 @@ namespace Nop.Plugin.Payments.Qualpay.Models
         public bool AdditionalFeePercentage { get; set; }
         public bool AdditionalFeePercentage_OverrideForStore { get; set; }
 
+        [NopResourceDisplayName("Plugins.Payments.Qualpay.Fields.MerchantEmail")]
+        [DataType(DataType.EmailAddress)]
+        public string MerchantEmail { get; set; }
+
         #endregion
     }
 }
