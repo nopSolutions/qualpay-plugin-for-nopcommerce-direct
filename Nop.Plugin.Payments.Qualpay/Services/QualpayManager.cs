@@ -101,7 +101,7 @@ namespace Nop.Plugin.Payments.Qualpay.Services
             var response = HandleRequestAction(() =>
             {
                 //set credentials
-                paymentGatewayRequest.DeveloperId = QualpayDefaults.DeveloperId;
+                paymentGatewayRequest.DeveloperId = $"{QualpayDefaults.DeveloperId}-{NopVersion.CurrentVersion}";
                 paymentGatewayRequest.MerchantId = long.Parse(_qualpaySettings.MerchantId);
 
                 //process request
