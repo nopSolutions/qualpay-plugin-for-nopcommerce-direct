@@ -22,7 +22,6 @@ using Nop.Services.Configuration;
 using Nop.Services.Customers;
 using Nop.Services.Directory;
 using Nop.Services.Localization;
-using Nop.Services.Logging;
 using Nop.Services.Orders;
 using Nop.Services.Payments;
 using Nop.Services.Tax;
@@ -42,12 +41,12 @@ namespace Nop.Plugin.Payments.Qualpay
         private readonly ICustomerService _customerService;
         private readonly IGenericAttributeService _genericAttributeService;
         private readonly ILocalizationService _localizationService;
-        private readonly ILogger _logger;
         private readonly IOrderTotalCalculationService _orderTotalCalculationService;
         private readonly IPaymentService _paymentService;
         private readonly IPriceCalculationService _priceCalculationService;
-        private readonly IProductAttributeParser _productAttributeParser;
+        private readonly IProductService _productService;
         private readonly ISettingService _settingService;
+        private readonly IShoppingCartService _shoppingCartService;
         private readonly ITaxService _taxService;
         private readonly IWebHelper _webHelper;
         private readonly QualpayManager _qualpayManager;
@@ -63,12 +62,12 @@ namespace Nop.Plugin.Payments.Qualpay
             ICustomerService customerService,
             IGenericAttributeService genericAttributeService,
             ILocalizationService localizationService,
-            ILogger logger,
             IOrderTotalCalculationService orderTotalCalculationService,
             IPaymentService paymentService,
             IPriceCalculationService priceCalculationService,
-            IProductAttributeParser productAttributeParser,
+            IProductService productService,
             ISettingService settingService,
+            IShoppingCartService shoppingCartService,
             ITaxService taxService,
             IWebHelper webHelper,
             QualpayManager qualpayManager,
@@ -80,12 +79,12 @@ namespace Nop.Plugin.Payments.Qualpay
             this._customerService = customerService;
             this._genericAttributeService = genericAttributeService;
             this._localizationService = localizationService;
-            this._logger = logger;
             this._orderTotalCalculationService = orderTotalCalculationService;
             this._paymentService = paymentService;
             this._priceCalculationService = priceCalculationService;
-            this._productAttributeParser = productAttributeParser;
+            this._productService = productService;
             this._settingService = settingService;
+            this._shoppingCartService = shoppingCartService;
             this._taxService = taxService;
             this._webHelper = webHelper;
             this._qualpayManager = qualpayManager;
@@ -124,12 +123,14 @@ namespace Nop.Plugin.Payments.Qualpay
                     false, shoppingCartItem.Customer, out _);
 
                 return CreateItem(price, shoppingCartItem.Product.Name,
-                    shoppingCartItem.Product.FormatSku(shoppingCartItem.AttributesXml, _productAttributeParser), shoppingCartItem.Quantity);
+                    _productService.FormatSku(shoppingCartItem.Product, shoppingCartItem.AttributesXml),
+                    shoppingCartItem.Quantity);
             }));
 
             //create transaction items from checkout attributes
-            var checkoutAttributesXml = customer
-                .GetAttribute<string>(SystemCustomerAttributeNames.CheckoutAttributes, storeId);
+            var checkoutAttributesXml = _genericAttributeService.GetAttribute<string>(customer,
+                NopCustomerDefaults.CheckoutAttributes, storeId);
+
             if (!string.IsNullOrEmpty(checkoutAttributesXml))
             {
                 var attributeValues = _checkoutAttributeParser.ParseCheckoutAttributeValues(checkoutAttributesXml);
@@ -147,7 +148,7 @@ namespace Nop.Plugin.Payments.Qualpay
                 items.Add(CreateItem(paymentPrice, $"Payment ({PluginDescriptor.FriendlyName})", "payment"));
 
             //create transaction item for shipping rate
-            if (shoppingCart.RequiresShipping())
+            if (_shoppingCartService.ShoppingCartRequiresShipping(shoppingCart))
             {
                 var shippingPrice = _orderTotalCalculationService.GetShoppingCartShippingTotal(shoppingCart, false);
                 if (shippingPrice.HasValue && shippingPrice.Value > decimal.Zero)
@@ -194,10 +195,10 @@ namespace Nop.Plugin.Payments.Qualpay
             {
                 CustomerId = customer.Id.ToString(),
                 Email = customer.Email,
-                FirstName = customer.GetAttribute<string>(SystemCustomerAttributeNames.FirstName),
-                LastName = customer.GetAttribute<string>(SystemCustomerAttributeNames.LastName),
-                Company = customer.GetAttribute<string>(SystemCustomerAttributeNames.Company),
-                Phone = customer.GetAttribute<string>(SystemCustomerAttributeNames.Phone),
+                FirstName = _genericAttributeService.GetAttribute<string>(customer, NopCustomerDefaults.FirstNameAttribute),
+                LastName = _genericAttributeService.GetAttribute<string>(customer, NopCustomerDefaults.LastNameAttribute),
+                Company = _genericAttributeService.GetAttribute<string>(customer, NopCustomerDefaults.CompanyAttribute),
+                Phone = _genericAttributeService.GetAttribute<string>(customer, NopCustomerDefaults.PhoneAttribute),
                 ShippingAddresses = customer.ShippingAddress == null ? null : new List<Domain.Platform.ShippingAddress>
                 {
                     new Domain.Platform.ShippingAddress
@@ -557,10 +558,12 @@ namespace Nop.Plugin.Payments.Qualpay
         /// <returns>Additional handling fee</returns>
         public decimal GetAdditionalHandlingFee(IList<ShoppingCartItem> cart)
         {
-            var result = this.CalculateAdditionalFee(_orderTotalCalculationService, cart,
-                _qualpaySettings.AdditionalFee, _qualpaySettings.AdditionalFeePercentage);
+            //var result = this.CalculateAdditionalFee(_orderTotalCalculationService, cart,
+            //    _qualpaySettings.AdditionalFee, _qualpaySettings.AdditionalFeePercentage);
 
-            return result;
+            //return result;
+            return _paymentService.CalculateAdditionalFee(cart,
+                _qualpaySettings.AdditionalFee, _qualpaySettings.AdditionalFeePercentage);
         }
 
         /// <summary>
@@ -779,9 +782,9 @@ namespace Nop.Plugin.Payments.Qualpay
         /// Gets a view component for displaying plugin in public store ("payment info" checkout step)
         /// </summary>
         /// <param name="viewComponentName">View component name</param>
-        public void GetPublicViewComponent(out string viewComponentName)
+        public string GetPublicViewComponentName()
         {
-            viewComponentName = QualpayDefaults.ViewComponentName;
+            return QualpayDefaults.ViewComponentName;
         }
 
         /// <summary>
@@ -799,46 +802,46 @@ namespace Nop.Plugin.Payments.Qualpay
             });
 
             //locales
-            this.AddOrUpdatePluginLocaleResource("Enums.Nop.Plugin.Payments.Qualpay.Domain.Authorization", "Authorization");
-            this.AddOrUpdatePluginLocaleResource("Enums.Nop.Plugin.Payments.Qualpay.Domain.Sale", "Sale (authorization and capture)");
-            this.AddOrUpdatePluginLocaleResource("Plugins.Payments.Qualpay.Customer", "Qualpay Vault Customer");
-            this.AddOrUpdatePluginLocaleResource("Plugins.Payments.Qualpay.Customer.Card", "Use a previously saved card");
-            this.AddOrUpdatePluginLocaleResource("Plugins.Payments.Qualpay.Customer.Card.ExpirationDate", "Expiration date");
-            this.AddOrUpdatePluginLocaleResource("Plugins.Payments.Qualpay.Customer.Card.Id", "ID");
-            this.AddOrUpdatePluginLocaleResource("Plugins.Payments.Qualpay.Customer.Card.MaskedNumber", "Card number");
-            this.AddOrUpdatePluginLocaleResource("Plugins.Payments.Qualpay.Customer.Card.Save", "Add the card to Qualpay Vault for next time");
-            this.AddOrUpdatePluginLocaleResource("Plugins.Payments.Qualpay.Customer.Card.Select", "Select a card");
-            this.AddOrUpdatePluginLocaleResource("Plugins.Payments.Qualpay.Customer.Card.Token", "Use a tokenized card");
-            this.AddOrUpdatePluginLocaleResource("Plugins.Payments.Qualpay.Customer.Card.Type", "Type");
-            this.AddOrUpdatePluginLocaleResource("Plugins.Payments.Qualpay.Customer.Create", "Add to Vault");
-            this.AddOrUpdatePluginLocaleResource("Plugins.Payments.Qualpay.Customer.Hint", "Qualpay Vault Customer ID");
-            this.AddOrUpdatePluginLocaleResource("Plugins.Payments.Qualpay.Customer.NotExists", "The customer is not yet in the Qualpay Customer Vault");
-            this.AddOrUpdatePluginLocaleResource("Plugins.Payments.Qualpay.Fields.AdditionalFee", "Additional fee");
-            this.AddOrUpdatePluginLocaleResource("Plugins.Payments.Qualpay.Fields.AdditionalFee.Hint", "Enter additional fee to charge your customers.");
-            this.AddOrUpdatePluginLocaleResource("Plugins.Payments.Qualpay.Fields.AdditionalFeePercentage", "Additional fee. Use percentage");
-            this.AddOrUpdatePluginLocaleResource("Plugins.Payments.Qualpay.Fields.AdditionalFeePercentage.Hint", "Determine whether to apply a percentage additional fee to the order total. If not enabled, a fixed value is used.");
-            this.AddOrUpdatePluginLocaleResource("Plugins.Payments.Qualpay.Fields.MerchantEmail", "Email");
-            this.AddOrUpdatePluginLocaleResource("Plugins.Payments.Qualpay.Fields.MerchantEmail.Hint", "Enter your email to subscribe to Qualpay news.");
-            this.AddOrUpdatePluginLocaleResource("Plugins.Payments.Qualpay.Fields.MerchantId", "Merchant ID");
-            this.AddOrUpdatePluginLocaleResource("Plugins.Payments.Qualpay.Fields.MerchantId.Hint", "Specify your Qualpay merchant identifier.");
-            this.AddOrUpdatePluginLocaleResource("Plugins.Payments.Qualpay.Fields.PaymentTransactionType", "Transaction type");
-            this.AddOrUpdatePluginLocaleResource("Plugins.Payments.Qualpay.Fields.PaymentTransactionType.Hint", "Choose payment transaction type.");
-            this.AddOrUpdatePluginLocaleResource("Plugins.Payments.Qualpay.Fields.SecurityKey", "Security key");
-            this.AddOrUpdatePluginLocaleResource("Plugins.Payments.Qualpay.Fields.SecurityKey.Hint", "Specify your Qualpay security key.");
-            this.AddOrUpdatePluginLocaleResource("Plugins.Payments.Qualpay.Fields.UseCustomerVault", "Use Customer Vault");
-            this.AddOrUpdatePluginLocaleResource("Plugins.Payments.Qualpay.Fields.UseCustomerVault.Hint", "Determine whether to use Qualpay Customer Vault feature. The Customer Vault reduces the amount of associated payment data that touches your servers and enables subsequent payment billing information to be fulfilled by Qualpay.");
-            this.AddOrUpdatePluginLocaleResource("Plugins.Payments.Qualpay.Fields.UseEmbeddedFields", "Use Embedded Fields");
-            this.AddOrUpdatePluginLocaleResource("Plugins.Payments.Qualpay.Fields.UseEmbeddedFields.Hint", "Determine whether to use Qualpay Embedded Fields feature. Your customer will remain on your website, but payment information is collected and processed on Qualpay servers. Since your server is not processing customer payment data, your PCI DSS compliance scope is greatly reduced.");
-            this.AddOrUpdatePluginLocaleResource("Plugins.Payments.Qualpay.Fields.UseRecurringBilling", "Use Recurring Billing");
-            this.AddOrUpdatePluginLocaleResource("Plugins.Payments.Qualpay.Fields.UseRecurringBilling.Hint", "Determine whether to use Qualpay Recurring Billing feature. Support setting your customers up for recurring or subscription payments.");
-            this.AddOrUpdatePluginLocaleResource("Plugins.Payments.Qualpay.Fields.UseSandbox", "Use Sandbox");
-            this.AddOrUpdatePluginLocaleResource("Plugins.Payments.Qualpay.Fields.UseSandbox.Hint", "Determine whether to enable sandbox (testing environment).");
-            this.AddOrUpdatePluginLocaleResource("Plugins.Payments.Qualpay.Fields.Webhook.Warning", "Webhook was not created (you'll not be able to handle recurring payments)");
-            this.AddOrUpdatePluginLocaleResource("Plugins.Payments.Qualpay.PaymentMethodDescription", "Pay by credit / debit card using Qualpay payment gateway");
-            this.AddOrUpdatePluginLocaleResource("Plugins.Payments.Qualpay.Subscribe", "Stay informed");
-            this.AddOrUpdatePluginLocaleResource("Plugins.Payments.Qualpay.Subscribe.Error", "An error has occurred, details in the log");
-            this.AddOrUpdatePluginLocaleResource("Plugins.Payments.Qualpay.Subscribe.Success", "You have subscribed to Qualpay news");
-            this.AddOrUpdatePluginLocaleResource("Plugins.Payments.Qualpay.Unsubscribe.Success", "You have unsubscribed from Qualpay news");
+            _localizationService.AddOrUpdatePluginLocaleResource("Enums.Nop.Plugin.Payments.Qualpay.Domain.Authorization", "Authorization");
+            _localizationService.AddOrUpdatePluginLocaleResource("Enums.Nop.Plugin.Payments.Qualpay.Domain.Sale", "Sale (authorization and capture)");
+            _localizationService.AddOrUpdatePluginLocaleResource("Plugins.Payments.Qualpay.Customer", "Qualpay Vault Customer");
+            _localizationService.AddOrUpdatePluginLocaleResource("Plugins.Payments.Qualpay.Customer.Card", "Use a previously saved card");
+            _localizationService.AddOrUpdatePluginLocaleResource("Plugins.Payments.Qualpay.Customer.Card.ExpirationDate", "Expiration date");
+            _localizationService.AddOrUpdatePluginLocaleResource("Plugins.Payments.Qualpay.Customer.Card.Id", "ID");
+            _localizationService.AddOrUpdatePluginLocaleResource("Plugins.Payments.Qualpay.Customer.Card.MaskedNumber", "Card number");
+            _localizationService.AddOrUpdatePluginLocaleResource("Plugins.Payments.Qualpay.Customer.Card.Save", "Add the card to Qualpay Vault for next time");
+            _localizationService.AddOrUpdatePluginLocaleResource("Plugins.Payments.Qualpay.Customer.Card.Select", "Select a card");
+            _localizationService.AddOrUpdatePluginLocaleResource("Plugins.Payments.Qualpay.Customer.Card.Token", "Use a tokenized card");
+            _localizationService.AddOrUpdatePluginLocaleResource("Plugins.Payments.Qualpay.Customer.Card.Type", "Type");
+            _localizationService.AddOrUpdatePluginLocaleResource("Plugins.Payments.Qualpay.Customer.Create", "Add to Vault");
+            _localizationService.AddOrUpdatePluginLocaleResource("Plugins.Payments.Qualpay.Customer.Hint", "Qualpay Vault Customer ID");
+            _localizationService.AddOrUpdatePluginLocaleResource("Plugins.Payments.Qualpay.Customer.NotExists", "The customer is not yet in the Qualpay Customer Vault");
+            _localizationService.AddOrUpdatePluginLocaleResource("Plugins.Payments.Qualpay.Fields.AdditionalFee", "Additional fee");
+            _localizationService.AddOrUpdatePluginLocaleResource("Plugins.Payments.Qualpay.Fields.AdditionalFee.Hint", "Enter additional fee to charge your customers.");
+            _localizationService.AddOrUpdatePluginLocaleResource("Plugins.Payments.Qualpay.Fields.AdditionalFeePercentage", "Additional fee. Use percentage");
+            _localizationService.AddOrUpdatePluginLocaleResource("Plugins.Payments.Qualpay.Fields.AdditionalFeePercentage.Hint", "Determine whether to apply a percentage additional fee to the order total. If not enabled, a fixed value is used.");
+            _localizationService.AddOrUpdatePluginLocaleResource("Plugins.Payments.Qualpay.Fields.MerchantEmail", "Email");
+            _localizationService.AddOrUpdatePluginLocaleResource("Plugins.Payments.Qualpay.Fields.MerchantEmail.Hint", "Enter your email to subscribe to Qualpay news.");
+            _localizationService.AddOrUpdatePluginLocaleResource("Plugins.Payments.Qualpay.Fields.MerchantId", "Merchant ID");
+            _localizationService.AddOrUpdatePluginLocaleResource("Plugins.Payments.Qualpay.Fields.MerchantId.Hint", "Specify your Qualpay merchant identifier.");
+            _localizationService.AddOrUpdatePluginLocaleResource("Plugins.Payments.Qualpay.Fields.PaymentTransactionType", "Transaction type");
+            _localizationService.AddOrUpdatePluginLocaleResource("Plugins.Payments.Qualpay.Fields.PaymentTransactionType.Hint", "Choose payment transaction type.");
+            _localizationService.AddOrUpdatePluginLocaleResource("Plugins.Payments.Qualpay.Fields.SecurityKey", "Security key");
+            _localizationService.AddOrUpdatePluginLocaleResource("Plugins.Payments.Qualpay.Fields.SecurityKey.Hint", "Specify your Qualpay security key.");
+            _localizationService.AddOrUpdatePluginLocaleResource("Plugins.Payments.Qualpay.Fields.UseCustomerVault", "Use Customer Vault");
+            _localizationService.AddOrUpdatePluginLocaleResource("Plugins.Payments.Qualpay.Fields.UseCustomerVault.Hint", "Determine whether to use Qualpay Customer Vault feature. The Customer Vault reduces the amount of associated payment data that touches your servers and enables subsequent payment billing information to be fulfilled by Qualpay.");
+            _localizationService.AddOrUpdatePluginLocaleResource("Plugins.Payments.Qualpay.Fields.UseEmbeddedFields", "Use Embedded Fields");
+            _localizationService.AddOrUpdatePluginLocaleResource("Plugins.Payments.Qualpay.Fields.UseEmbeddedFields.Hint", "Determine whether to use Qualpay Embedded Fields feature. Your customer will remain on your website, but payment information is collected and processed on Qualpay servers. Since your server is not processing customer payment data, your PCI DSS compliance scope is greatly reduced.");
+            _localizationService.AddOrUpdatePluginLocaleResource("Plugins.Payments.Qualpay.Fields.UseRecurringBilling", "Use Recurring Billing");
+            _localizationService.AddOrUpdatePluginLocaleResource("Plugins.Payments.Qualpay.Fields.UseRecurringBilling.Hint", "Determine whether to use Qualpay Recurring Billing feature. Support setting your customers up for recurring or subscription payments.");
+            _localizationService.AddOrUpdatePluginLocaleResource("Plugins.Payments.Qualpay.Fields.UseSandbox", "Use Sandbox");
+            _localizationService.AddOrUpdatePluginLocaleResource("Plugins.Payments.Qualpay.Fields.UseSandbox.Hint", "Determine whether to enable sandbox (testing environment).");
+            _localizationService.AddOrUpdatePluginLocaleResource("Plugins.Payments.Qualpay.Fields.Webhook.Warning", "Webhook was not created (you'll not be able to handle recurring payments)");
+            _localizationService.AddOrUpdatePluginLocaleResource("Plugins.Payments.Qualpay.PaymentMethodDescription", "Pay by credit / debit card using Qualpay payment gateway");
+            _localizationService.AddOrUpdatePluginLocaleResource("Plugins.Payments.Qualpay.Subscribe", "Stay informed");
+            _localizationService.AddOrUpdatePluginLocaleResource("Plugins.Payments.Qualpay.Subscribe.Error", "An error has occurred, details in the log");
+            _localizationService.AddOrUpdatePluginLocaleResource("Plugins.Payments.Qualpay.Subscribe.Success", "You have subscribed to Qualpay news");
+            _localizationService.AddOrUpdatePluginLocaleResource("Plugins.Payments.Qualpay.Unsubscribe.Success", "You have unsubscribed from Qualpay news");
 
             base.Install();
         }
@@ -852,46 +855,46 @@ namespace Nop.Plugin.Payments.Qualpay
             _settingService.DeleteSetting<QualpaySettings>();
 
             //locales
-            this.DeletePluginLocaleResource("Enums.Nop.Plugin.Payments.Qualpay.Domain.Authorization");
-            this.DeletePluginLocaleResource("Enums.Nop.Plugin.Payments.Qualpay.Domain.Sale");
-            this.DeletePluginLocaleResource("Plugins.Payments.Qualpay.Customer");
-            this.DeletePluginLocaleResource("Plugins.Payments.Qualpay.Customer.Card");
-            this.DeletePluginLocaleResource("Plugins.Payments.Qualpay.Customer.Card.ExpirationDate");
-            this.DeletePluginLocaleResource("Plugins.Payments.Qualpay.Customer.Card.Id");
-            this.DeletePluginLocaleResource("Plugins.Payments.Qualpay.Customer.Card.MaskedNumber");
-            this.DeletePluginLocaleResource("Plugins.Payments.Qualpay.Customer.Card.Save");
-            this.DeletePluginLocaleResource("Plugins.Payments.Qualpay.Customer.Card.Select");
-            this.DeletePluginLocaleResource("Plugins.Payments.Qualpay.Customer.Card.Token");
-            this.DeletePluginLocaleResource("Plugins.Payments.Qualpay.Customer.Card.Type");
-            this.DeletePluginLocaleResource("Plugins.Payments.Qualpay.Customer.Create");
-            this.DeletePluginLocaleResource("Plugins.Payments.Qualpay.Customer.Hint");
-            this.DeletePluginLocaleResource("Plugins.Payments.Qualpay.Customer.NotExists");
-            this.DeletePluginLocaleResource("Plugins.Payments.Qualpay.Fields.AdditionalFee");
-            this.DeletePluginLocaleResource("Plugins.Payments.Qualpay.Fields.AdditionalFee.Hint");
-            this.DeletePluginLocaleResource("Plugins.Payments.Qualpay.Fields.AdditionalFeePercentage");
-            this.DeletePluginLocaleResource("Plugins.Payments.Qualpay.Fields.AdditionalFeePercentage.Hint");
-            this.DeletePluginLocaleResource("Plugins.Payments.Qualpay.Fields.MerchantEmail");
-            this.DeletePluginLocaleResource("Plugins.Payments.Qualpay.Fields.MerchantEmail.Hint");
-            this.DeletePluginLocaleResource("Plugins.Payments.Qualpay.Fields.MerchantId");
-            this.DeletePluginLocaleResource("Plugins.Payments.Qualpay.Fields.MerchantId.Hint");
-            this.DeletePluginLocaleResource("Plugins.Payments.Qualpay.Fields.PaymentTransactionType");
-            this.DeletePluginLocaleResource("Plugins.Payments.Qualpay.Fields.PaymentTransactionType.Hint");
-            this.DeletePluginLocaleResource("Plugins.Payments.Qualpay.Fields.SecurityKey");
-            this.DeletePluginLocaleResource("Plugins.Payments.Qualpay.Fields.SecurityKey.Hint");
-            this.DeletePluginLocaleResource("Plugins.Payments.Qualpay.Fields.UseCustomerVault");
-            this.DeletePluginLocaleResource("Plugins.Payments.Qualpay.Fields.UseCustomerVault.Hint");
-            this.DeletePluginLocaleResource("Plugins.Payments.Qualpay.Fields.UseEmbeddedFields");
-            this.DeletePluginLocaleResource("Plugins.Payments.Qualpay.Fields.UseEmbeddedFields.Hint");
-            this.DeletePluginLocaleResource("Plugins.Payments.Qualpay.Fields.UseRecurringBilling");
-            this.DeletePluginLocaleResource("Plugins.Payments.Qualpay.Fields.UseRecurringBilling.Hint");
-            this.DeletePluginLocaleResource("Plugins.Payments.Qualpay.Fields.UseSandbox");
-            this.DeletePluginLocaleResource("Plugins.Payments.Qualpay.Fields.UseSandbox.Hint");
-            this.DeletePluginLocaleResource("Plugins.Payments.Qualpay.Fields.Webhook.Warning");
-            this.DeletePluginLocaleResource("Plugins.Payments.Qualpay.PaymentMethodDescription");
-            this.DeletePluginLocaleResource("Plugins.Payments.Qualpay.Subscribe");
-            this.DeletePluginLocaleResource("Plugins.Payments.Qualpay.Subscribe.Error");
-            this.DeletePluginLocaleResource("Plugins.Payments.Qualpay.Subscribe.Success");
-            this.DeletePluginLocaleResource("Plugins.Payments.Qualpay.Unsubscribe.Success");
+            _localizationService.DeletePluginLocaleResource("Enums.Nop.Plugin.Payments.Qualpay.Domain.Authorization");
+            _localizationService.DeletePluginLocaleResource("Enums.Nop.Plugin.Payments.Qualpay.Domain.Sale");
+            _localizationService.DeletePluginLocaleResource("Plugins.Payments.Qualpay.Customer");
+            _localizationService.DeletePluginLocaleResource("Plugins.Payments.Qualpay.Customer.Card");
+            _localizationService.DeletePluginLocaleResource("Plugins.Payments.Qualpay.Customer.Card.ExpirationDate");
+            _localizationService.DeletePluginLocaleResource("Plugins.Payments.Qualpay.Customer.Card.Id");
+            _localizationService.DeletePluginLocaleResource("Plugins.Payments.Qualpay.Customer.Card.MaskedNumber");
+            _localizationService.DeletePluginLocaleResource("Plugins.Payments.Qualpay.Customer.Card.Save");
+            _localizationService.DeletePluginLocaleResource("Plugins.Payments.Qualpay.Customer.Card.Select");
+            _localizationService.DeletePluginLocaleResource("Plugins.Payments.Qualpay.Customer.Card.Token");
+            _localizationService.DeletePluginLocaleResource("Plugins.Payments.Qualpay.Customer.Card.Type");
+            _localizationService.DeletePluginLocaleResource("Plugins.Payments.Qualpay.Customer.Create");
+            _localizationService.DeletePluginLocaleResource("Plugins.Payments.Qualpay.Customer.Hint");
+            _localizationService.DeletePluginLocaleResource("Plugins.Payments.Qualpay.Customer.NotExists");
+            _localizationService.DeletePluginLocaleResource("Plugins.Payments.Qualpay.Fields.AdditionalFee");
+            _localizationService.DeletePluginLocaleResource("Plugins.Payments.Qualpay.Fields.AdditionalFee.Hint");
+            _localizationService.DeletePluginLocaleResource("Plugins.Payments.Qualpay.Fields.AdditionalFeePercentage");
+            _localizationService.DeletePluginLocaleResource("Plugins.Payments.Qualpay.Fields.AdditionalFeePercentage.Hint");
+            _localizationService.DeletePluginLocaleResource("Plugins.Payments.Qualpay.Fields.MerchantEmail");
+            _localizationService.DeletePluginLocaleResource("Plugins.Payments.Qualpay.Fields.MerchantEmail.Hint");
+            _localizationService.DeletePluginLocaleResource("Plugins.Payments.Qualpay.Fields.MerchantId");
+            _localizationService.DeletePluginLocaleResource("Plugins.Payments.Qualpay.Fields.MerchantId.Hint");
+            _localizationService.DeletePluginLocaleResource("Plugins.Payments.Qualpay.Fields.PaymentTransactionType");
+            _localizationService.DeletePluginLocaleResource("Plugins.Payments.Qualpay.Fields.PaymentTransactionType.Hint");
+            _localizationService.DeletePluginLocaleResource("Plugins.Payments.Qualpay.Fields.SecurityKey");
+            _localizationService.DeletePluginLocaleResource("Plugins.Payments.Qualpay.Fields.SecurityKey.Hint");
+            _localizationService.DeletePluginLocaleResource("Plugins.Payments.Qualpay.Fields.UseCustomerVault");
+            _localizationService.DeletePluginLocaleResource("Plugins.Payments.Qualpay.Fields.UseCustomerVault.Hint");
+            _localizationService.DeletePluginLocaleResource("Plugins.Payments.Qualpay.Fields.UseEmbeddedFields");
+            _localizationService.DeletePluginLocaleResource("Plugins.Payments.Qualpay.Fields.UseEmbeddedFields.Hint");
+            _localizationService.DeletePluginLocaleResource("Plugins.Payments.Qualpay.Fields.UseRecurringBilling");
+            _localizationService.DeletePluginLocaleResource("Plugins.Payments.Qualpay.Fields.UseRecurringBilling.Hint");
+            _localizationService.DeletePluginLocaleResource("Plugins.Payments.Qualpay.Fields.UseSandbox");
+            _localizationService.DeletePluginLocaleResource("Plugins.Payments.Qualpay.Fields.UseSandbox.Hint");
+            _localizationService.DeletePluginLocaleResource("Plugins.Payments.Qualpay.Fields.Webhook.Warning");
+            _localizationService.DeletePluginLocaleResource("Plugins.Payments.Qualpay.PaymentMethodDescription");
+            _localizationService.DeletePluginLocaleResource("Plugins.Payments.Qualpay.Subscribe");
+            _localizationService.DeletePluginLocaleResource("Plugins.Payments.Qualpay.Subscribe.Error");
+            _localizationService.DeletePluginLocaleResource("Plugins.Payments.Qualpay.Subscribe.Success");
+            _localizationService.DeletePluginLocaleResource("Plugins.Payments.Qualpay.Unsubscribe.Success");
 
             base.Uninstall();
         }

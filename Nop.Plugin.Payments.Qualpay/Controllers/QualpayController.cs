@@ -11,7 +11,6 @@ using Nop.Services.Configuration;
 using Nop.Services.Localization;
 using Nop.Services.Messages;
 using Nop.Services.Security;
-using Nop.Services.Stores;
 using Nop.Web.Areas.Admin.Controllers;
 using Nop.Web.Framework.Controllers;
 
@@ -26,8 +25,7 @@ namespace Nop.Plugin.Payments.Qualpay.Controllers
         private readonly ILocalizationService _localizationService;
         private readonly IPermissionService _permissionService;
         private readonly ISettingService _settingService;
-        private readonly IStoreService _storeService;
-        private readonly IWorkContext _workContext;
+        private readonly IStoreContext _storeContext;
         private readonly QualpayManager _qualpayManager;
 
         #endregion
@@ -38,9 +36,8 @@ namespace Nop.Plugin.Payments.Qualpay.Controllers
             IEmailAccountService emailAccountService,
             ILocalizationService localizationService,
             IPermissionService permissionService,
+            IStoreContext storeContext,
             ISettingService settingService,
-            IStoreService storeService,
-            IWorkContext workContext,
             QualpayManager qualpayManager)
         {
             this._emailAccountSettings = emailAccountSettings;
@@ -48,8 +45,7 @@ namespace Nop.Plugin.Payments.Qualpay.Controllers
             this._localizationService = localizationService;
             this._permissionService = permissionService;
             this._settingService = settingService;
-            this._storeService = storeService;
-            this._workContext = workContext;
+            this._storeContext = storeContext;
             this._qualpayManager = qualpayManager;
         }
 
@@ -63,7 +59,7 @@ namespace Nop.Plugin.Payments.Qualpay.Controllers
                 return AccessDeniedView();
 
             //load settings for a chosen store scope
-            var storeId = GetActiveStoreScopeConfiguration(_storeService, _workContext);
+            var storeId = _storeContext.ActiveStoreScopeConfiguration;
             var settings = _settingService.LoadSetting<QualpaySettings>(storeId);
 
             //prepare model
@@ -98,12 +94,12 @@ namespace Nop.Plugin.Payments.Qualpay.Controllers
             //prepare payment transaction types
             model.PaymentTransactionTypes.Add(new SelectListItem
             {
-                Text = TransactionType.Authorization.GetLocalizedEnum(_localizationService, _workContext),
+                Text =  _localizationService.GetLocalizedEnum(TransactionType.Authorization),
                 Value = ((int)TransactionType.Authorization).ToString()
             });
             model.PaymentTransactionTypes.Add(new SelectListItem
             {
-                Text = TransactionType.Sale.GetLocalizedEnum(_localizationService, _workContext),
+                Text = _localizationService.GetLocalizedEnum(TransactionType.Sale),
                 Value = ((int)TransactionType.Sale).ToString()
             });
 
@@ -121,7 +117,7 @@ namespace Nop.Plugin.Payments.Qualpay.Controllers
                 return Configure();
 
             //load settings for a chosen store scope
-            var storeId = GetActiveStoreScopeConfiguration(_storeService, _workContext);
+            var storeId = _storeContext.ActiveStoreScopeConfiguration; 
             var settings = _settingService.LoadSetting<QualpaySettings>(storeId);
 
             //ensure that webhook is already exists and create the new one if does not (required for recurring billing)

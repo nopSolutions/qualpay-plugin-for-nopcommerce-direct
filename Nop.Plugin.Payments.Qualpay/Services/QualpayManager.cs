@@ -58,7 +58,7 @@ namespace Nop.Plugin.Payments.Qualpay.Services
         /// <summary>
         /// Get the Qualpay service base URL
         /// </summary>
-        /// <returns>URL</returns               
+        /// <returns>URL</returns>
         private string GetServiceBaseUrl()
         {
             return _qualpaySettings.UseSandbox ? "https://api-test.qualpay.com/" : "https://api.qualpay.com/";

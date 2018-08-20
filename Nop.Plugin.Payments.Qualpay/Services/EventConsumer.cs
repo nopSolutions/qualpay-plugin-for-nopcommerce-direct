@@ -5,7 +5,6 @@ using Microsoft.AspNetCore.Mvc.Rendering;
 using Microsoft.AspNetCore.Routing;
 using Nop.Core.Domain.Customers;
 using Nop.Core.Domain.Orders;
-using Nop.Core.Domain.Payments;
 using Nop.Core.Events;
 using Nop.Plugin.Payments.Qualpay.Models.Customer;
 using Nop.Services.Customers;
@@ -25,7 +24,7 @@ namespace Nop.Plugin.Payments.Qualpay.Services
     /// </summary>
     public class EventConsumer :
         IConsumer<AdminTabStripCreated>,
-        IConsumer<EntityInserted<RecurringPayment>>,
+        IConsumer<EntityInsertedEvent<RecurringPayment>>,
         IConsumer<PageRenderingEvent>
     {
         #region Fields
@@ -34,7 +33,6 @@ namespace Nop.Plugin.Payments.Qualpay.Services
         private readonly ILocalizationService _localizationService;
         private readonly IOrderService _orderService;
         private readonly IPaymentService _paymentService;
-        private readonly PaymentSettings _paymentSettings;
         private readonly QualpayManager _qualpayManager;
         private readonly QualpaySettings _qualpaySettings;
 
@@ -46,7 +44,6 @@ namespace Nop.Plugin.Payments.Qualpay.Services
             ILocalizationService localizationService,
             IOrderService orderService,
             IPaymentService paymentService,
-            PaymentSettings paymentSettings,
             QualpayManager qualpayManager,
             QualpaySettings qualpaySettings)
         {
@@ -54,7 +51,6 @@ namespace Nop.Plugin.Payments.Qualpay.Services
             this._localizationService = localizationService;
             this._orderService = orderService;
             this._paymentService = paymentService;
-            this._paymentSettings = paymentSettings;
             this._qualpayManager = qualpayManager;
             this._qualpaySettings = qualpaySettings;
         }
@@ -79,7 +75,9 @@ namespace Nop.Plugin.Payments.Qualpay.Services
                 return;
 
             //check whether the payment plugin is installed and is active
-            if (!_paymentService.LoadPaymentMethodBySystemName(QualpayDefaults.SystemName)?.IsPaymentMethodActive(_paymentSettings) ?? true)
+            var processor = _paymentService.LoadPaymentMethodBySystemName(QualpayDefaults.SystemName) as QualpayProcessor;
+            if (processor == null ||
+                !_paymentService.IsPaymentMethodActive(processor) || !processor.PluginDescriptor.Installed)
                 return;
 
             //whether Qualpay Customer Vault feature is enabled
@@ -136,7 +134,7 @@ namespace Nop.Plugin.Payments.Qualpay.Services
         /// Recurring payment inserted event
         /// </summary>
         /// <param name="eventMessage">Event message</param>
-        public void HandleEvent(EntityInserted<RecurringPayment> eventMessage)
+        public void HandleEvent(EntityInsertedEvent<RecurringPayment> eventMessage)
         {
             var recurringPayment = eventMessage?.Entity;
             if (recurringPayment == null)
@@ -162,7 +160,9 @@ namespace Nop.Plugin.Payments.Qualpay.Services
                 return;
 
             //check whether the payment plugin is installed and is active
-            if (!_paymentService.LoadPaymentMethodBySystemName(QualpayDefaults.SystemName)?.IsPaymentMethodActive(_paymentSettings) ?? true)
+            var processor = _paymentService.LoadPaymentMethodBySystemName(QualpayDefaults.SystemName) as QualpayProcessor;
+            if (processor == null ||
+                !_paymentService.IsPaymentMethodActive(processor) || !processor.PluginDescriptor.Installed)
                 return;
 
             //add Embedded Fields sсript and styles to the one page checkout

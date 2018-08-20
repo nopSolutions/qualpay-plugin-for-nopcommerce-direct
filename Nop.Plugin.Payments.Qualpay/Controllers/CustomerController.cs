@@ -21,6 +21,7 @@ namespace Nop.Plugin.Payments.Qualpay.Controllers
         #region Fields
 
         private readonly ICustomerService _customerService;
+        private readonly IGenericAttributeService _genericAttributeService;
         private readonly IPermissionService _permissionService;
         private readonly QualpayManager _qualpayManager;
 
@@ -29,10 +30,12 @@ namespace Nop.Plugin.Payments.Qualpay.Controllers
         #region Ctor
 
         public CustomerController(ICustomerService customerService,
+            IGenericAttributeService genericAttributeService,
             IPermissionService permissionService,
             QualpayManager qualpayManager)
         {
             this._customerService = customerService;
+            this._genericAttributeService = genericAttributeService;
             this._permissionService = permissionService;
             this._qualpayManager = qualpayManager;
         }
@@ -52,11 +55,11 @@ namespace Nop.Plugin.Payments.Qualpay.Controllers
             {
                 CustomerId = customer.Id.ToString(),
                 Email = customer.Email,
-                FirstName = customer.GetAttribute<string>(SystemCustomerAttributeNames.FirstName),
-                LastName = customer.GetAttribute<string>(SystemCustomerAttributeNames.LastName),
-                Company = customer.GetAttribute<string>(SystemCustomerAttributeNames.Company),
-                Phone = customer.GetAttribute<string>(SystemCustomerAttributeNames.Phone),
-                ShippingAddresses = customer.ShippingAddress == null ? null : new List<ShippingAddress>
+                FirstName = _genericAttributeService.GetAttribute<string>(customer, NopCustomerDefaults.FirstNameAttribute),
+                LastName = _genericAttributeService.GetAttribute<string>(customer, NopCustomerDefaults.LastNameAttribute),
+                Company = _genericAttributeService.GetAttribute<string>(customer, NopCustomerDefaults.CompanyAttribute),
+                Phone = _genericAttributeService.GetAttribute<string>(customer, NopCustomerDefaults.PhoneAttribute),
+                ShippingAddresses = customer.ShippingAddress == null ? null : new List<Domain.Platform.ShippingAddress>
                 {
                     new ShippingAddress
                     {

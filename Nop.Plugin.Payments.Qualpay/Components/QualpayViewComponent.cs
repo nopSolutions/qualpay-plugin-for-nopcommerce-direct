@@ -23,6 +23,7 @@ namespace Nop.Plugin.Payments.Qualpay.Components
         #region Fields
 
         private readonly ILocalizationService _localizationService;
+        private readonly IShoppingCartService _shoppingCartService;
         private readonly IStoreContext _storeContext;
         private readonly IWorkContext _workContext;
         private readonly QualpayManager _qualpayManager;
@@ -33,12 +34,14 @@ namespace Nop.Plugin.Payments.Qualpay.Components
         #region Ctor
 
         public QualpayViewComponent(ILocalizationService localizationService,
+            IShoppingCartService shoppingCartService,
             IStoreContext storeContext,
             IWorkContext workContext,
             QualpayManager qualpayManager,
             QualpaySettings qualpaySettings)
         {
             this._localizationService = localizationService;
+            this._shoppingCartService = shoppingCartService;
             this._storeContext = storeContext;
             this._workContext = workContext;
             this._qualpayManager = qualpayManager;
@@ -99,7 +102,8 @@ namespace Nop.Plugin.Payments.Qualpay.Components
                 var currentShoppingCart = _workContext.CurrentCustomer.ShoppingCartItems
                     .Where(item => item.ShoppingCartType == ShoppingCartType.ShoppingCart)
                     .LimitPerStore(_storeContext.CurrentStore.Id).ToList();
-                model.IsRecurringOrder = currentShoppingCart.IsRecurring();
+                //model.IsRecurringOrder = currentShoppingCart.IsRecurring();
+                model.IsRecurringOrder = _shoppingCartService.ShoppingCartIsRecurring(currentShoppingCart);
             }
 
             return View("~/Plugins/Payments.Qualpay/Views/PaymentInfo.cshtml", model);
