@@ -85,9 +85,13 @@
             }
         });
 
-        $("#qp-embedded-frame").load(function () {
+        $("#qp-embedded-frame").on("load", function () {
             $('.payment-info-next-step-button').prop('disabled', false);
             $('.payment-info-next-step-button').css("opacity", 1);
+        });
+
+        $(window).on("beforeunload", function() {
+            qpEmbeddedForm.unloadFrame();
         });
     </text>
 }

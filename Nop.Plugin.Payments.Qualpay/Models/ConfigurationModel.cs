@@ -30,8 +30,6 @@ namespace Nop.Plugin.Payments.Qualpay.Models
         public string MerchantId { get; set; }
 
         [NopResourceDisplayName("Plugins.Payments.Qualpay.Fields.SecurityKey")]
-        [DataType(DataType.Password)]
-        [NoTrim]
         public string SecurityKey { get; set; }
         public bool SecurityKey_OverrideForStore { get; set; }
 

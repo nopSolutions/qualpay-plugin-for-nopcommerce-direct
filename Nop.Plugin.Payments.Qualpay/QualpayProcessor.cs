@@ -809,7 +809,7 @@ namespace Nop.Plugin.Payments.Qualpay
             _localizationService.AddOrUpdatePluginLocaleResource("Plugins.Payments.Qualpay.Customer.Card.ExpirationDate", "Expiration date");
             _localizationService.AddOrUpdatePluginLocaleResource("Plugins.Payments.Qualpay.Customer.Card.Id", "ID");
             _localizationService.AddOrUpdatePluginLocaleResource("Plugins.Payments.Qualpay.Customer.Card.MaskedNumber", "Card number");
-            _localizationService.AddOrUpdatePluginLocaleResource("Plugins.Payments.Qualpay.Customer.Card.Save", "Add the card to Qualpay Vault for next time");
+            _localizationService.AddOrUpdatePluginLocaleResource("Plugins.Payments.Qualpay.Customer.Card.Save", "Save card data for future purchases");
             _localizationService.AddOrUpdatePluginLocaleResource("Plugins.Payments.Qualpay.Customer.Card.Select", "Select a card");
             _localizationService.AddOrUpdatePluginLocaleResource("Plugins.Payments.Qualpay.Customer.Card.Token", "Use a tokenized card");
             _localizationService.AddOrUpdatePluginLocaleResource("Plugins.Payments.Qualpay.Customer.Card.Type", "Type");

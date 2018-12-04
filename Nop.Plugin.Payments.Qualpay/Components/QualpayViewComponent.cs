@@ -93,6 +93,9 @@ namespace Nop.Plugin.Payments.Qualpay.Components
                     //add the special item for 'select card' with empty GUID value 
                     if (model.BillingCards.Any())
                     {
+                        //select the first actual card by default
+                        model.BillingCardId = model.BillingCards.FirstOrDefault().Value;
+
                         var selectCardText = _localizationService.GetResource("Plugins.Payments.Qualpay.Customer.Card.Select");
                         model.BillingCards.Insert(0, new SelectListItem { Text = selectCardText, Value = Guid.Empty.ToString() });
                     }
