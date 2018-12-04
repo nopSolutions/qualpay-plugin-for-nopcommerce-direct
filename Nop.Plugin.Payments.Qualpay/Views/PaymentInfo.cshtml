@@ -17,10 +17,7 @@
 @if (qualpaySettings.UseEmbeddedFields)
 {
     <text>
-        $('.section.payment-info').before(`
-            <form id="qualpay-payment-form">
-                <input type="submit" id="qualpay-payment-form-submit" style="display: none" />
-            </form>`);
+        $('.section.payment-info').before('<form id="qualpay-payment-form"><input type="submit" id="qualpay-payment-form-submit" style="display: none" /></form>');
 
         var submitForm = false;
         var errorsExist = false;
