@@ -120,68 +120,74 @@
 }
 
 <table width="100%" cellspacing="2" cellpadding="1" border="0" id="qualpay-card-details">
-@if (qualpaySettings.UseEmbeddedFields)
-{
-    <tr>
-        <td>
-            <input type="hidden" asp-for="TokenizedCardId">
-            <input type="hidden" asp-for="Errors">
-        </td>
-        <td>
-            <div id="qp-embedded-container" align="center"></div>
-        </td>
-    </tr>
-}
-else
-{
-    <tr>
-        <td>
-            <label asp-for="CardholderName">@T("Payment.CardholderName"):</label>
-        </td>
-        <td>
-            <input type="text" asp-for="CardholderName" style="width:165px;" autocomplete="off" />
-            <span asp-validation-for="CardholderName"></span>
-        </td>
-    </tr>
-    <tr>
-        <td>
-            <label asp-for="CardNumber">@T("Payment.CardNumber"):</label>
-        </td>
-        <td>
-            <input type="text" asp-for="CardNumber" style="width:165px;" autocomplete="off" maxlength="22" />
-            <span asp-validation-for="CardNumber"></span>
-        </td>
-    </tr>
-    <tr>
-        <td>
-            <label asp-for="ExpireMonth">@T("Payment.ExpirationDate"):</label>
-        </td>
-        <td>
-            <select asp-for="ExpireMonth" asp-items="Model.ExpireMonths"></select>
-            /
-            <select asp-for="ExpireYear" asp-items="Model.ExpireYears"></select>
-        </td>
-    </tr>
-    <tr>
-        <td>
-            <label asp-for="CardCode">@T("Payment.CardCode"):</label>
-        </td>
-        <td>
-            <input type="text" asp-for="CardCode" style="width:60px;" autocomplete="off" maxlength="4" />
-            <span asp-validation-for="CardCode"></span>
-        </td>
-    </tr>
-}
-@if (qualpaySettings.UseCustomerVault && !Model.IsGuest && !Model.IsRecurringOrder)
-{
-    <tr>
-        <td>
-            <label asp-for="SaveCardDetails">@T("Plugins.Payments.Qualpay.Customer.Card.Save"):</label>
-        </td>
-        <td>
-            <input type="checkbox" asp-for="SaveCardDetails" />
-            <span asp-validation-for="SaveCardDetails"></span>
-        </td>
-    </tr>
-}
+    <style type='text/css'>
+        @@media (max-width: 422px) {
+            #qp-embedded-container {
+                height: 12em;
+            }}
+    </style>
+    @if (qualpaySettings.UseEmbeddedFields)
+    {
+        <tr>
+            <td>
+                <input type="hidden" asp-for="TokenizedCardId">
+                <input type="hidden" asp-for="Errors">
+            </td>
+            <td>
+                <div id="qp-embedded-container" align="center"></div>
+            </td>
+        </tr>
+    }
+    else
+    {
+        <tr>
+            <td>
+                <label asp-for="CardholderName">@T("Payment.CardholderName"):</label>
+            </td>
+            <td>
+                <input type="text" asp-for="CardholderName" style="width: 165px;" autocomplete="off"/>
+                <span asp-validation-for="CardholderName"></span>
+            </td>
+        </tr>
+        <tr>
+            <td>
+                <label asp-for="CardNumber">@T("Payment.CardNumber"):</label>
+            </td>
+            <td>
+                <input type="text" asp-for="CardNumber" style="width: 165px;" autocomplete="off" maxlength="22"/>
+                <span asp-validation-for="CardNumber"></span>
+            </td>
+        </tr>
+        <tr>
+            <td>
+                <label asp-for="ExpireMonth">@T("Payment.ExpirationDate"):</label>
+            </td>
+            <td>
+                <select asp-for="ExpireMonth" asp-items="Model.ExpireMonths"></select>
+                /
+                <select asp-for="ExpireYear" asp-items="Model.ExpireYears"></select>
+            </td>
+        </tr>
+        <tr>
+            <td>
+                <label asp-for="CardCode">@T("Payment.CardCode"):</label>
+            </td>
+            <td>
+                <input type="text" asp-for="CardCode" style="width: 60px;" autocomplete="off" maxlength="4"/>
+                <span asp-validation-for="CardCode"></span>
+            </td>
+        </tr>
+    }
+    @if (qualpaySettings.UseCustomerVault && !Model.IsGuest && !Model.IsRecurringOrder)
+    {
+        <tr>
+            <td>
+                <label asp-for="SaveCardDetails">@T("Plugins.Payments.Qualpay.Customer.Card.Save"):</label>
+            </td>
+            <td>
+                <input type="checkbox" asp-for="SaveCardDetails"/>
+                <span asp-validation-for="SaveCardDetails"></span>
+            </td>
+        </tr>
+    }
 </table>
