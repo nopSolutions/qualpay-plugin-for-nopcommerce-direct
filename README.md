@@ -3,7 +3,7 @@
 
 nopCommerce site: [https://www.nopcommerce.com](https://www.nopcommerce.com)
 
-Listing on nopCommerce "extensions and themes" catalog: [https://www.nopcommerce.com/p/2670/qualpay-payment-gateway.aspx](https://www.nopcommerce.com/p/2670/qualpay-payment-gateway.aspx)
+Listing on nopCommerce "extensions and themes" catalog: [https://www.nopcommerce.com/qualpay-payment-gateway](https://www.nopcommerce.com/qualpay-payment-gateway)
 
 Qualpay site: [https://www.qualpay.com/](https://www.qualpay.com/)
 
