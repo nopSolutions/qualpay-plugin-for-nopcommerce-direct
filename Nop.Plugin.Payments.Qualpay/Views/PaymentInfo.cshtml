@@ -9,7 +9,7 @@
     Html.AddCssFileParts(Nop.Plugin.Payments.Qualpay.QualpayDefaults.EmbeddedFieldsStylePath, excludeFromBundle: true);
 }
 
-<script>
+<script asp-location="Footer">
     $(document).ready(function() {
         $("#@Html.IdFor(model => model.BillingCardId)").change(toggleBillingCard);
         toggleBillingCard();
@@ -66,7 +66,7 @@
             var selectedBillingCardId = $('#@Html.IdFor(model => model.BillingCardId)').val();
             if (!submitForm && (!selectedBillingCardId || selectedBillingCardId == '@Guid.Empty.ToString()')) {
                 if (!errorsExist && !stepBack) {
-                    $('#qualpay-payment-form-submit').click()
+                    $('#qualpay-payment-form-submit').click();
                 }
                 return false;
             }
@@ -124,7 +124,8 @@
         @@media (max-width: 422px) {
             #qp-embedded-container {
                 height: 12em;
-            }}
+            }
+        }
     </style>
     @if (qualpaySettings.UseEmbeddedFields)
     {
@@ -145,7 +146,7 @@
                 <label asp-for="CardholderName">@T("Payment.CardholderName"):</label>
             </td>
             <td>
-                <input type="text" asp-for="CardholderName" style="width: 165px;" autocomplete="off"/>
+                <input type="text" asp-for="CardholderName" style="width: 165px;" autocomplete="off" />
                 <span asp-validation-for="CardholderName"></span>
             </td>
         </tr>
@@ -154,7 +155,7 @@
                 <label asp-for="CardNumber">@T("Payment.CardNumber"):</label>
             </td>
             <td>
-                <input type="text" asp-for="CardNumber" style="width: 165px;" autocomplete="off" maxlength="22"/>
+                <input type="text" asp-for="CardNumber" style="width: 165px;" autocomplete="off" maxlength="22" />
                 <span asp-validation-for="CardNumber"></span>
             </td>
         </tr>
@@ -173,7 +174,7 @@
                 <label asp-for="CardCode">@T("Payment.CardCode"):</label>
             </td>
             <td>
-                <input type="text" asp-for="CardCode" style="width: 60px;" autocomplete="off" maxlength="4"/>
+                <input type="text" asp-for="CardCode" style="width: 60px;" autocomplete="off" maxlength="4" />
                 <span asp-validation-for="CardCode"></span>
             </td>
         </tr>
@@ -185,9 +186,11 @@
                 <label asp-for="SaveCardDetails">@T("Plugins.Payments.Qualpay.Customer.Card.Save"):</label>
             </td>
             <td>
-                <input type="checkbox" asp-for="SaveCardDetails"/>
+                <input type="checkbox" asp-for="SaveCardDetails" />
                 <span asp-validation-for="SaveCardDetails"></span>
             </td>
         </tr>
     }
 </table>
+
+@Html.NopInlineScripts(ResourceLocation.Footer)

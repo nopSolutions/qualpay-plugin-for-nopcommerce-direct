@@ -7,7 +7,7 @@ using Nop.Web.Framework.Mvc.ModelBinding;
 namespace Nop.Plugin.Payments.Qualpay.Models
 {
     /// <summary>
-    /// Represents the Qualpay configuration model
+    /// Represents configuration model
     /// </summary>
     public class ConfigurationModel : BaseNopModel
     {
@@ -31,7 +31,9 @@ namespace Nop.Plugin.Payments.Qualpay.Models
 
         [NopResourceDisplayName("Plugins.Payments.Qualpay.Fields.SecurityKey")]
         public string SecurityKey { get; set; }
-        public bool SecurityKey_OverrideForStore { get; set; }
+
+        [NopResourceDisplayName("Plugins.Payments.Qualpay.Fields.ProfileId")]
+        public string ProfileId { get; set; }
 
         [NopResourceDisplayName("Plugins.Payments.Qualpay.Fields.UseSandbox")]
         public bool UseSandbox { get; set; }

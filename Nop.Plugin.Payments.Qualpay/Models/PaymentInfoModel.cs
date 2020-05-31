@@ -5,7 +5,7 @@ using Nop.Web.Framework.Models;
 namespace Nop.Plugin.Payments.Qualpay.Models
 {
     /// <summary>
-    /// Represents the Qualpay payment model
+    /// Represents payment model
     /// </summary>
     public class PaymentInfoModel : BaseNopModel
     {

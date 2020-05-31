@@ -1,4 +1,4 @@
-using Nop.Core.Configuration;
+﻿using Nop.Core.Configuration;
 using Nop.Plugin.Payments.Qualpay.Domain;
 
 namespace Nop.Plugin.Payments.Qualpay
@@ -12,6 +12,11 @@ namespace Nop.Plugin.Payments.Qualpay
         /// Gets or sets a merchant identifier
         /// </summary>
         public string MerchantId { get; set; }
+
+        /// <summary>
+        /// Gets or sets a profile identifier
+        /// </summary>
+        public string ProfileId { get; set; }
 
         /// <summary>
         /// Gets or sets a security key
@@ -64,7 +69,7 @@ namespace Nop.Plugin.Payments.Qualpay
         public string WebhookSecretKey { get; set; }
 
         /// <summary>
-        /// Gets or sets a merchant email
+        /// Gets or sets a merchant email (used to subscribe for Qualpay news)
         /// </summary>
         public string MerchantEmail { get; set; }
     }

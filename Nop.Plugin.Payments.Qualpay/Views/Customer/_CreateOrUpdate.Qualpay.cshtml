@@ -1,8 +1,10 @@
-﻿@model Nop.Plugin.Payments.Qualpay.Models.Customer.QualpayCustomerModel
+﻿@model QualpayCustomerModel
 
-<div class="panel-group">
-    <div class="panel panel-default">
-        <div class="panel-body">
+@using Nop.Plugin.Payments.Qualpay
+@using Nop.Plugin.Payments.Qualpay.Models.Customer
+
+<nop-panel asp-name="customer-qualpay" asp-icon="fa fa-archive" asp-title="@T("Plugins.Payments.Qualpay.Customer")" asp-hide-block-attribute-name="@QualpayDefaults.HideBlockAttribute" asp-hide="@Model.HideBlock" asp-advanced="true">
+    <div class="panel-body">
         @if (!Model.CustomerExists)
         {
             <p>
@@ -27,7 +29,7 @@
                                     type: "POST",
                                     url: "@(Url.Action("CreateQualpayCustomer"))",
                                     data: postData,
-                                    success: function (data) {
+                                    success: function (data, textStatus, jqXHR) {
                                         location.reload();
                                     },
                                     error: function (jqXHR, textStatus, errorThrown) {
@@ -47,87 +49,56 @@
         {
             <div class="form-group">
                 <div class="col-md-3">
-                    <nop-label asp-for="QualpayCustomerId"/>
+                    <nop-label asp-for="QualpayCustomerId" />
                 </div>
                 <div class="col-md-9">
                     <div class="form-text-row">@Model.QualpayCustomerId</div>
                 </div>
             </div>
         }
-        </div>
+    </div>
 
     @if (Model.CustomerExists)
     {
         <div class="panel-body">
-            <div id="qualpay-customer-cards-grid"></div>
-
-            <script type="text/javascript">
-                $(document).ready(function () {
-                    $("#qualpay-customer-cards-grid").kendoGrid({
-                        dataSource: {
-                            type: "json",
-                            transport: {
-                                read: {
-                                    url: "@Html.Raw(Url.Action("QualpayCustomerCardList", new { customerId = Model.Id }))",
-                                    type: "POST",
-                                    dataType: "json",
-                                    data: addAntiForgeryToken
-                                },
-                                destroy: {
-                                    url: "@Html.Raw(Url.Action("QualpayCustomerCardDelete", new { customerId = Model.Id }))",
-                                    type: "POST",
-                                    dataType: "json",
-                                    data: addAntiForgeryToken
-                                }
-                            },
-                            schema: {
-                                data: "Data",
-                                total: "Total",
-                                errors: "Errors",
-                                model: {
-                                    id: "Id"
-                                }
-                            },
-                            error: function(e) {
-                                display_kendoui_grid_error(e);
-                                this.cancelChanges();
-                            },
-                            serverPaging: true,
-                            serverFiltering: true,
-                            serverSorting: true
-                        },
-                        editable: {
-                            confirmation: "@T("Admin.Common.DeleteConfirmation")",
-                            mode: "inline"
-                        },
-                        scrollable: false,
-                        columns: [
-                        {
-                            field: "CardId",
-                            title: "@T("Plugins.Payments.Qualpay.Customer.Card.Id")",
-                            width: 200
-                        }, {
-                            field: "CardType",
-                            title: "@T("Plugins.Payments.Qualpay.Customer.Card.Type")",
-                            width: 150
-                        }, {
-                            field: "MaskedNumber",
-                            title: "@T("Plugins.Payments.Qualpay.Customer.Card.MaskedNumber")"
-                        }, {
-                            field: "ExpirationDate",
-                            title: "@T("Plugins.Payments.Qualpay.Customer.Card.ExpirationDate")",
-                            width: 100
-                        }, {
-                            command: { name: "destroy", text: "@T("Admin.Common.Delete")" },
-                            title: "@T("Admin.Common.Delete")",
-                            width: 100,
-                            headerAttributes: { style: "text-align:center" },
-                            attributes: { style: "text-align:center" }
-                        }]
-                    });
-                });
-            </script>
+            @await Html.PartialAsync("Table", new DataTablesModel
+            {
+                Name = "qualpay-customer-grid",
+                UrlRead = new DataUrl("QualpayCustomerCardList", "Customer", new RouteValueDictionary { [nameof(Model.CustomerCardSearchModel.CustomerId)] = Model.CustomerCardSearchModel.CustomerId }),
+                UrlDelete = new DataUrl("QualpayCustomerCardDelete", "Customer", new RouteValueDictionary { [nameof(Model.CustomerCardSearchModel.CustomerId)] = Model.CustomerCardSearchModel.CustomerId }),
+                Length = Model.CustomerCardSearchModel.PageSize,
+                LengthMenu = Model.CustomerCardSearchModel.AvailablePageSizes,
+                Filters = new List<FilterParameter>
+                {
+                    new FilterParameter(nameof(Model.CustomerCardSearchModel.CustomerId), Model.CustomerCardSearchModel.CustomerId)
+                },
+                ColumnCollection = new List<ColumnProperty>
+                {
+                    new ColumnProperty(nameof(QualpayCustomerCardModel.CardId))
+                    {
+                        Title = T("Plugins.Payments.Qualpay.Customer.Card.Id").Text
+                    },
+                    new ColumnProperty(nameof(QualpayCustomerCardModel.CardType))
+                    {
+                        Title = T("Plugins.Payments.Qualpay.Customer.Card.Type").Text
+                    },
+                    new ColumnProperty(nameof(QualpayCustomerCardModel.MaskedNumber))
+                    {
+                        Title = T("Plugins.Payments.Qualpay.Customer.Card.MaskedNumber").Text
+                    },
+                    new ColumnProperty(nameof(QualpayCustomerCardModel.ExpirationDate))
+                    {
+                        Title = T("Plugins.Payments.Qualpay.Customer.Card.ExpirationDate").Text
+                    },
+                    new ColumnProperty(nameof(QualpayCustomerCardModel.Id))
+                    {
+                        Title = T("Admin.Common.Delete").Text,
+                        Width = "100",
+                        Render = new RenderButtonRemove(T("Admin.Common.Delete").Text),
+                        ClassName =  NopColumnClassDefaults.Button
+                    }
+                }
+            })
         </div>
     }
-    </div>
-</div>
+</nop-panel>

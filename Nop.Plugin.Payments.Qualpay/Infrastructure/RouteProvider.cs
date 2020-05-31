@@ -7,7 +7,7 @@ namespace Nop.Plugin.Payments.Qualpay.Infrastructure
     /// <summary>
     /// Represents plugin route provider
     /// </summary>
-    public partial class RouteProvider : IRouteProvider
+    public class RouteProvider : IRouteProvider
     {
         /// <summary>
         /// Register routes
@@ -23,9 +23,6 @@ namespace Nop.Plugin.Payments.Qualpay.Infrastructure
         /// <summary>
         /// Gets a priority of route provider
         /// </summary>
-        public int Priority
-        {
-            get { return 0; }
-        }
+        public int Priority => 0;
     }
 }

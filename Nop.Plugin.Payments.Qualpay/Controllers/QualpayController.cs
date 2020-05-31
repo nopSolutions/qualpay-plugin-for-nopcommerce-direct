@@ -1,12 +1,11 @@
-﻿using System;
+﻿using System.Linq;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Rendering;
 using Nop.Core;
-using Nop.Core.Domain.Messages;
 using Nop.Plugin.Payments.Qualpay.Domain;
-using Nop.Plugin.Payments.Qualpay.Domain.Platform;
 using Nop.Plugin.Payments.Qualpay.Models;
 using Nop.Plugin.Payments.Qualpay.Services;
+using Nop.Services;
 using Nop.Services.Configuration;
 using Nop.Services.Localization;
 using Nop.Services.Messages;
@@ -20,9 +19,8 @@ namespace Nop.Plugin.Payments.Qualpay.Controllers
     {
         #region Fields
 
-        private readonly EmailAccountSettings _emailAccountSettings;
-        private readonly IEmailAccountService _emailAccountService;
         private readonly ILocalizationService _localizationService;
+        private readonly INotificationService _notificationService;
         private readonly IPermissionService _permissionService;
         private readonly ISettingService _settingService;
         private readonly IStoreContext _storeContext;
@@ -32,21 +30,19 @@ namespace Nop.Plugin.Payments.Qualpay.Controllers
 
         #region Ctor
 
-        public QualpayController(EmailAccountSettings emailAccountSettings,
-            IEmailAccountService emailAccountService,
-            ILocalizationService localizationService,
+        public QualpayController(ILocalizationService localizationService,
+            INotificationService notificationService,
             IPermissionService permissionService,
             IStoreContext storeContext,
             ISettingService settingService,
             QualpayManager qualpayManager)
         {
-            this._emailAccountSettings = emailAccountSettings;
-            this._emailAccountService = emailAccountService;
-            this._localizationService = localizationService;
-            this._permissionService = permissionService;
-            this._settingService = settingService;
-            this._storeContext = storeContext;
-            this._qualpayManager = qualpayManager;
+            _localizationService = localizationService;
+            _notificationService = notificationService;
+            _permissionService = permissionService;
+            _settingService = settingService;
+            _storeContext = storeContext;
+            _qualpayManager = qualpayManager;
         }
 
         #endregion
@@ -68,6 +64,7 @@ namespace Nop.Plugin.Payments.Qualpay.Controllers
                 MerchantId = settings.MerchantId,
                 MerchantEmail = settings.MerchantEmail,
                 SecurityKey = settings.SecurityKey,
+                ProfileId = settings.ProfileId,
                 UseSandbox = settings.UseSandbox,
                 UseEmbeddedFields = settings.UseEmbeddedFields,
                 UseCustomerVault = settings.UseCustomerVault,
@@ -76,12 +73,11 @@ namespace Nop.Plugin.Payments.Qualpay.Controllers
                 AdditionalFee = settings.AdditionalFee,
                 AdditionalFeePercentage = settings.AdditionalFeePercentage,
                 ActiveStoreScopeConfiguration = storeId,
-                IsConfigured = !string.IsNullOrEmpty(settings.MerchantId) && long.TryParse(settings.MerchantId, out long merchantId)
+                IsConfigured = !string.IsNullOrEmpty(settings.MerchantId) && long.TryParse(settings.MerchantId, out var merchantId)
             };
 
             if (storeId > 0)
             {
-                model.SecurityKey_OverrideForStore = _settingService.SettingExists(settings, x => x.SecurityKey, storeId);
                 model.UseSandbox_OverrideForStore = _settingService.SettingExists(settings, x => x.UseSandbox, storeId);
                 model.UseEmbeddedFields_OverrideForStore = _settingService.SettingExists(settings, x => x.UseEmbeddedFields, storeId);
                 model.UseCustomerVault_OverrideForStore = _settingService.SettingExists(settings, x => x.UseCustomerVault, storeId);
@@ -92,16 +88,8 @@ namespace Nop.Plugin.Payments.Qualpay.Controllers
             }
 
             //prepare payment transaction types
-            model.PaymentTransactionTypes.Add(new SelectListItem
-            {
-                Text =  _localizationService.GetLocalizedEnum(TransactionType.Authorization),
-                Value = ((int)TransactionType.Authorization).ToString()
-            });
-            model.PaymentTransactionTypes.Add(new SelectListItem
-            {
-                Text = _localizationService.GetLocalizedEnum(TransactionType.Sale),
-                Value = ((int)TransactionType.Sale).ToString()
-            });
+            model.PaymentTransactionTypes = TransactionType.Authorization.ToSelectList(false)
+                .Select(item => new SelectListItem(item.Text, item.Value)).ToList();
 
             return View("~/Plugins/Payments.Qualpay/Views/Configure.cshtml", model);
         }
@@ -117,38 +105,28 @@ namespace Nop.Plugin.Payments.Qualpay.Controllers
                 return Configure();
 
             //load settings for a chosen store scope
-            var storeId = _storeContext.ActiveStoreScopeConfiguration; 
+            var storeId = _storeContext.ActiveStoreScopeConfiguration;
             var settings = _settingService.LoadSetting<QualpaySettings>(storeId);
 
             //ensure that webhook is already exists and create the new one if does not (required for recurring billing)
-            if (model.UseRecurringBilling &&
-                (string.IsNullOrEmpty(settings.WebhookId) || _qualpayManager.GetWebhookById(settings.WebhookId)?.Status != WebhookStatus.Active))
+            if (model.UseRecurringBilling)
             {
-                var webhook = _qualpayManager.CreateWebhook(new CreateWebhookRequest
-                {
-                    EmailAddress = new[] { _emailAccountService.GetEmailAccountById(_emailAccountSettings.DefaultEmailAccountId)?.Email },
-                    Events = new[]
-                    {
-                        QualpayDefaults.SubscriptionPaymentFailureWebhookEvent,
-                        QualpayDefaults.SubscriptionPaymentSuccessWebhookEvent,
-                        QualpayDefaults.ValidateUrlWebhookEvent
-                    },
-                    Label = QualpayDefaults.WebhookLabel,
-                    NotificationUrl = Url.RouteUrl(QualpayDefaults.WebhookRouteName, null, Uri.UriSchemeHttps),
-                    Status = WebhookStatus.Active
-                });
+                var webhook = _qualpayManager.CreateWebhook(settings.WebhookId);
                 if (webhook?.WebhookId != null)
                 {
                     settings.WebhookId = webhook.WebhookId.ToString();
-                    settings.WebhookSecretKey = webhook.SecurityKey;
+                    settings.WebhookSecretKey = webhook.Secret;
+                    _settingService.SaveSetting(settings, x => x.WebhookId, storeId, false);
+                    _settingService.SaveSetting(settings, x => x.WebhookSecretKey, storeId, false);
                 }
                 else
-                    WarningNotification(_localizationService.GetResource("Plugins.Payments.Qualpay.Fields.Webhook.Warning"));
+                    _notificationService.WarningNotification(_localizationService.GetResource("Plugins.Payments.Qualpay.Fields.Webhook.Warning"));
             }
 
             //save settings
             settings.MerchantId = model.MerchantId;
             settings.SecurityKey = model.SecurityKey;
+            settings.ProfileId = model.ProfileId;
             settings.UseSandbox = model.UseSandbox;
             settings.UseEmbeddedFields = model.UseEmbeddedFields;
             settings.UseCustomerVault = model.UseCustomerVault;
@@ -157,11 +135,9 @@ namespace Nop.Plugin.Payments.Qualpay.Controllers
             settings.AdditionalFee = model.AdditionalFee;
             settings.AdditionalFeePercentage = model.AdditionalFeePercentage;
 
-            /* We do not clear cache after each setting update.
-             * This behavior can increase performance because cached settings will not be cleared 
-             * and loaded from database after each update */
             _settingService.SaveSetting(settings, x => x.MerchantId, storeId, false);
-            _settingService.SaveSettingOverridablePerStore(settings, x => x.SecurityKey, model.SecurityKey_OverrideForStore, storeId, false);
+            _settingService.SaveSetting(settings, x => x.SecurityKey, storeId, false);
+            _settingService.SaveSetting(settings, x => x.ProfileId, storeId, false);
             _settingService.SaveSettingOverridablePerStore(settings, x => x.UseSandbox, model.UseSandbox_OverrideForStore, storeId, false);
             _settingService.SaveSettingOverridablePerStore(settings, x => x.UseEmbeddedFields, model.UseEmbeddedFields_OverrideForStore, storeId, false);
             _settingService.SaveSettingOverridablePerStore(settings, x => x.UseCustomerVault, model.UseCustomerVault_OverrideForStore, storeId, false);
@@ -169,12 +145,11 @@ namespace Nop.Plugin.Payments.Qualpay.Controllers
             _settingService.SaveSettingOverridablePerStore(settings, x => x.PaymentTransactionType, model.PaymentTransactionTypeId_OverrideForStore, storeId, false);
             _settingService.SaveSettingOverridablePerStore(settings, x => x.AdditionalFee, model.AdditionalFee_OverrideForStore, storeId, false);
             _settingService.SaveSettingOverridablePerStore(settings, x => x.AdditionalFeePercentage, model.AdditionalFeePercentage_OverrideForStore, storeId, false);
-            _settingService.SaveSetting(settings, x => x.WebhookId, storeId, false);
-            _settingService.SaveSetting(settings, x => x.WebhookSecretKey, storeId, false);
 
-            //now clear settings cache and display notification
             _settingService.ClearCache();
-            SuccessNotification(_localizationService.GetResource("Admin.Plugins.Saved"));
+
+            //display notification
+            _notificationService.SuccessNotification(_localizationService.GetResource("Admin.Plugins.Saved"));
 
             return Configure();
         }
@@ -192,8 +167,8 @@ namespace Nop.Plugin.Payments.Qualpay.Controllers
                 return Configure();
 
             //try to subscribe/unsubscribe
-            var successfullySubscribed = _qualpayManager.SubscribeToQualpay(model.MerchantEmail);
-            if (successfullySubscribed)
+            var (success, errorMessage) = _qualpayManager.SubscribeForQualpayNews(model.MerchantEmail);
+            if (success)
             {
                 //save settings and display success notification
                 settings.MerchantEmail = model.MerchantEmail;
@@ -202,10 +177,16 @@ namespace Nop.Plugin.Payments.Qualpay.Controllers
                 var message = !string.IsNullOrEmpty(model.MerchantEmail)
                     ? _localizationService.GetResource("Plugins.Payments.Qualpay.Subscribe.Success")
                     : _localizationService.GetResource("Plugins.Payments.Qualpay.Unsubscribe.Success");
-                SuccessNotification(message);
+                _notificationService.SuccessNotification(message);
             }
             else
-                ErrorNotification("Plugins.Payments.Qualpay.Subscribe.Error");
+            {
+                var message = !string.IsNullOrEmpty(errorMessage)
+                    ? errorMessage
+                    : _localizationService.GetResource("Plugins.Payments.Qualpay.Subscribe.Error");
+
+                _notificationService.ErrorNotification(message);
+            }
 
             return Configure();
         }

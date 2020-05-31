@@ -2,7 +2,6 @@
 using System.Linq;
 using Microsoft.AspNetCore.Mvc;
 using Nop.Core.Domain.Payments;
-using Nop.Plugin.Payments.Qualpay.Domain.Platform;
 using Nop.Plugin.Payments.Qualpay.Services;
 using Nop.Services.Orders;
 using Nop.Services.Payments;
@@ -28,9 +27,9 @@ namespace Nop.Plugin.Payments.Qualpay.Controllers
             IOrderService orderService,
             QualpayManager qualpayManager)
         {
-            this._orderProcessingService = orderProcessingService;
-            this._orderService = orderService;
-            this._qualpayManager = qualpayManager;
+            _orderProcessingService = orderProcessingService;
+            _orderService = orderService;
+            _qualpayManager = qualpayManager;
         }
 
         #endregion
@@ -43,16 +42,14 @@ namespace Nop.Plugin.Payments.Qualpay.Controllers
         {
             try
             {
-                //validate request
-                var (requestIsValid, webhookEvent) = _qualpayManager.ValidateWebhook<Subscription>(this.Request);
-                if (!requestIsValid || webhookEvent?.Data == null)
+                //validate request and get recurring payment subscription details
+                var (isValid, webhookEvent) = _qualpayManager.GetSubscriptionFromWebhookRequest(Request);
+                var subscription = webhookEvent?.Data;
+                if (!isValid || subscription == null)
                     return Ok();
 
-                //webhook request is valid and we got recurring payment subscription details
-                var subscription = webhookEvent.Data;
-
-                //try to get the initial order
-                var initialOrder = _orderService.GetOrderByGuid(new Guid(subscription.PlanDescription));
+                //try to get the initial order (an order GUID stored in a plan description)
+                var initialOrder = _orderService.GetOrderByGuid(new Guid(subscription.PlanDesc));
                 if (initialOrder == null)
                     return Ok();
 
@@ -73,11 +70,11 @@ namespace Nop.Plugin.Payments.Qualpay.Controllers
                 }
 
                 //or ensure that payment succeeded
-                 if (!webhookEvent.Event.Equals(QualpayDefaults.SubscriptionPaymentSuccessWebhookEvent, StringComparison.InvariantCultureIgnoreCase))
+                if (!webhookEvent.Event.Equals(QualpayDefaults.SubscriptionPaymentSuccessWebhookEvent, StringComparison.InvariantCultureIgnoreCase))
                     return Ok();
 
                 //try to get last subscription transaction
-                var transaction = _qualpayManager.GetSubscriptionTransactions(subscription.SubscriptionId)?.FirstOrDefault();
+                var transaction = _qualpayManager.GetSubscriptionTransactions(subscription.SubscriptionId).FirstOrDefault();
                 if (transaction == null)
                     return Ok();
 
@@ -86,18 +83,18 @@ namespace Nop.Plugin.Payments.Qualpay.Controllers
 
                 //whether an order for this transaction already exists
                 var orderExists = orders.Any(order => !string.IsNullOrEmpty(order.CaptureTransactionId) &&
-                    order.CaptureTransactionId.Equals(transaction.TransactionId, StringComparison.InvariantCultureIgnoreCase));
+                    order.CaptureTransactionId.Equals(transaction.PgId, StringComparison.InvariantCultureIgnoreCase));
                 if (orderExists)
                     return Ok();
 
                 //order doesn't exist, so handle this payment
                 _orderProcessingService.ProcessNextRecurringPayment(recurringPayment, new ProcessPaymentResult
                 {
-                    AuthorizationTransactionCode = transaction.AuthorizationCode,
-                    AuthorizationTransactionId = transaction.TransactionId,
-                    CaptureTransactionId = transaction.TransactionId,
-                    CaptureTransactionResult = $"Transaction is {transaction.Status.ToString()}",
-                    AuthorizationTransactionResult = $"Transaction is {transaction.Status.ToString()}",
+                    AuthorizationTransactionCode = transaction.AuthCode,
+                    AuthorizationTransactionId = transaction.PgId,
+                    CaptureTransactionId = transaction.PgId,
+                    CaptureTransactionResult = $"Transaction is {transaction.TranStatus}",
+                    AuthorizationTransactionResult = $"Transaction is {transaction.TranStatus}",
                     NewPaymentStatus = PaymentStatus.Paid
                 });
             }

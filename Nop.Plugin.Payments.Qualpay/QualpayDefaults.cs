@@ -1,5 +1,4 @@
-﻿
-namespace Nop.Plugin.Payments.Qualpay
+﻿namespace Nop.Plugin.Payments.Qualpay
 {
     /// <summary>
     /// Represents Qualpay payment gateway constants
@@ -7,14 +6,19 @@ namespace Nop.Plugin.Payments.Qualpay
     public class QualpayDefaults
     {
         /// <summary>
+        /// Name of the view component to display payment info in public store
+        /// </summary>
+        public const string PAYMENT_INFO_VIEW_COMPONENT_NAME = "QualpayPaymentInfo";
+
+        /// <summary>
+        /// Name of the view component to disaply Qualpay Customer Vault block on the customer details page
+        /// </summary>
+        public const string CUSTOMER_VIEW_COMPONENT_NAME = "QualpayCustomer";
+
+        /// <summary>
         /// Qualpay payment method system name
         /// </summary>
         public static string SystemName => "Payments.Qualpay";
-
-        /// <summary>
-        /// Name of the view component to display plugin in public store
-        /// </summary>
-        public const string ViewComponentName = "Qualpay";
 
         /// <summary>
         /// User agent using for requesting Qualpay services
@@ -32,17 +36,22 @@ namespace Nop.Plugin.Payments.Qualpay
         public static int UsdNumericIsoCode => 840;
 
         /// <summary>
+        /// Generic attribute name to hide Qualpay Customer Vault block on the customer details page
+        /// </summary>
+        public static string HideBlockAttribute = "CustomerPage.HideQualpayBlock";
+
+        /// <summary>
         /// One page checkout route name
         /// </summary>
         public static string OnePageCheckoutRouteName => "CheckoutOnePage";
 
         /// <summary>
-        /// Path to the Qualpay Embedded Fields js script
+        /// Path to Qualpay Embedded Fields js script
         /// </summary>
         public static string EmbeddedFieldsScriptPath => "https://app.qualpay.com/hosted/embedded/js/qp-embedded-sdk.min.js";
 
         /// <summary>
-        /// Path to the Qualpay Embedded Fields css styles
+        /// Path to Qualpay Embedded Fields css styles
         /// </summary>
         public static string EmbeddedFieldsStylePath => "https://app.qualpay.com/hosted/embedded/css/qp-embedded.css";
 

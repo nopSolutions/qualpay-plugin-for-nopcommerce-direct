@@ -3,7 +3,7 @@
 namespace Nop.Plugin.Payments.Qualpay.Models.Customer
 {
     /// <summary>
-    /// Represents the Qualpay customer card model
+    /// Represents Qualpay customer card model
     /// </summary>
     public class QualpayCustomerCardModel : BaseNopModel
     {

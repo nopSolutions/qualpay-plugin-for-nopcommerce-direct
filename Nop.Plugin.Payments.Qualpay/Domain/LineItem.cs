@@ -1,15 +1,12 @@
 ﻿using Newtonsoft.Json;
-using Newtonsoft.Json.Converters;
 
-namespace Nop.Plugin.Payments.Qualpay.Domain.PaymentGateway
+namespace Nop.Plugin.Payments.Qualpay.Domain
 {
     /// <summary>
-    /// Represents a single line item
+    /// Represents a single transaction line item
     /// </summary>
     public class LineItem
     {
-        #region Properties
-
         /// <summary>
         /// Gets or sets the count of items 
         /// </summary>
@@ -38,14 +35,13 @@ namespace Nop.Plugin.Payments.Qualpay.Domain.PaymentGateway
         /// Gets or sets the credit type
         /// </summary>
         [JsonProperty(PropertyName = "debit_credit_ind")]
-        [JsonConverter(typeof(StringEnumConverter))]
-        public ItemCreditType? CreditType { get; set; }
+        public string CreditType { get; set; }
 
         /// <summary>
         /// Gets or sets the cost per unit
         /// </summary>
         [JsonProperty(PropertyName = "unit_cost")]
-        public decimal? UnitPrice { get; set; }
+        public double? UnitPrice { get; set; }
 
         /// <summary>
         /// Gets or sets the type of supply (Visa only)
@@ -58,7 +54,5 @@ namespace Nop.Plugin.Payments.Qualpay.Domain.PaymentGateway
         /// </summary>
         [JsonProperty(PropertyName = "commodity_code ")]
         public string VisaCommodityCode { get; set; }
-
-        #endregion
     }
 }
