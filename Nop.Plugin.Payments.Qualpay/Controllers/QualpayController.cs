@@ -10,12 +10,16 @@ using Nop.Services.Configuration;
 using Nop.Services.Localization;
 using Nop.Services.Messages;
 using Nop.Services.Security;
-using Nop.Web.Areas.Admin.Controllers;
+using Nop.Web.Framework;
 using Nop.Web.Framework.Controllers;
+using Nop.Web.Framework.Mvc.Filters;
 
 namespace Nop.Plugin.Payments.Qualpay.Controllers
 {
-    public class QualpayController : BaseAdminController
+    [Area(AreaNames.Admin)]
+    [AuthorizeAdmin]
+    [AutoValidateAntiforgeryToken]
+    public class QualpayController : BasePaymentController
     {
         #region Fields
 

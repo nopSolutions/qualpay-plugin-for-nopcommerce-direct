@@ -50,7 +50,7 @@ namespace Nop.Plugin.Payments.Qualpay.Controllers
                 ?? throw new ArgumentException("No customer found with the specified id", nameof(customerId));
 
             //check whether customer is already exists in the Vault and try to create new one if does not exist
-            var vaultCustomer = _qualpayManager.GetCustomer(customer.Id) ?? _qualpayManager.CreateCustomer(customer)
+            _ = _qualpayManager.GetCustomer(customer.Id) ?? _qualpayManager.CreateCustomer(customer)
                 ?? throw new NopException("Qualpay Customer Vault error: Failed to create customer. Error details in the log");
 
             return Json(new { Result = true });

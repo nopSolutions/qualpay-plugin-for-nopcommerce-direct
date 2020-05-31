@@ -72,7 +72,7 @@
                         <nop-label asp-for="SecurityKey" />
                     </div>
                     <div class="col-md-9">
-                        <nop-editor asp-for="SecurityKey" asp-required="true" />
+                        <nop-editor asp-for="SecurityKey" asp-required="true" asp-value="@Model.SecurityKey" />
                         <span asp-validation-for="SecurityKey"></span>
                     </div>
                 </div>

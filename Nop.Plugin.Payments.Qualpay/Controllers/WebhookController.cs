@@ -7,7 +7,6 @@ using Nop.Services.Orders;
 using Nop.Services.Payments;
 using Nop.Web.Framework.Controllers;
 using Nop.Web.Framework.Mvc.Filters;
-using Nop.Web.Framework.Security;
 
 namespace Nop.Plugin.Payments.Qualpay.Controllers
 {
@@ -37,13 +36,14 @@ namespace Nop.Plugin.Payments.Qualpay.Controllers
         #region Methods
 
         [HttpPost]
-        [HttpsRequirement(SslRequirement.Yes)]
+        [IgnoreAntiforgeryToken]
+        [HttpsRequirement]
         public IActionResult WebhookHandler()
         {
             try
             {
                 //validate request and get recurring payment subscription details
-                var (isValid, webhookEvent) = _qualpayManager.GetSubscriptionFromWebhookRequest(Request);
+                var (isValid, webhookEvent) = _qualpayManager.GetSubscriptionFromWebhookRequest(HttpContext);
                 var subscription = webhookEvent?.Data;
                 if (!isValid || subscription == null)
                     return Ok();
@@ -79,7 +79,8 @@ namespace Nop.Plugin.Payments.Qualpay.Controllers
                     return Ok();
 
                 //get all orders of this recurring payment
-                var orders = _orderService.GetOrdersByIds(recurringPayment.RecurringPaymentHistory.Select(order => order.OrderId).ToArray());
+                var recurringPaymentHistory = _orderService.GetRecurringPaymentHistory(recurringPayment);
+                var orders = _orderService.GetOrdersByIds(recurringPaymentHistory.Select(order => order.OrderId).ToArray());
 
                 //whether an order for this transaction already exists
                 var orderExists = orders.Any(order => !string.IsNullOrEmpty(order.CaptureTransactionId) &&

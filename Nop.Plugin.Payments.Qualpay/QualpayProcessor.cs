@@ -164,7 +164,7 @@ namespace Nop.Plugin.Payments.Qualpay
         public RefundPaymentResult Refund(RefundPaymentRequest refundPaymentRequest)
         {
             //refund full or partial amount of the captured transaction
-            var (response, error) = _qualpayManager.Refund(refundPaymentRequest.Order.CaptureTransactionId,
+            var (_, error) = _qualpayManager.Refund(refundPaymentRequest.Order.CaptureTransactionId,
                 Math.Round(refundPaymentRequest.AmountToRefund, 2));
 
             if (!string.IsNullOrEmpty(error))
@@ -187,7 +187,7 @@ namespace Nop.Plugin.Payments.Qualpay
         public VoidPaymentResult Void(VoidPaymentRequest voidPaymentRequest)
         {
             //void full amount of the authorized transaction
-            var (response, error) = _qualpayManager.VoidTransaction(voidPaymentRequest.Order.AuthorizationTransactionId);
+            var (_, error) = _qualpayManager.VoidTransaction(voidPaymentRequest.Order.AuthorizationTransactionId);
 
             if (!string.IsNullOrEmpty(error))
                 return new VoidPaymentResult { Errors = new[] { error } };
@@ -232,7 +232,7 @@ namespace Nop.Plugin.Payments.Qualpay
         public CancelRecurringPaymentResult CancelRecurringPayment(CancelRecurringPaymentRequest cancelPaymentRequest)
         {
             //try to cancel recurring payment
-            var (subscription, error) = _qualpayManager.CancelSubscription(cancelPaymentRequest.Order.CustomerId.ToString(),
+            var (_, error) = _qualpayManager.CancelSubscription(cancelPaymentRequest.Order.CustomerId.ToString(),
                 cancelPaymentRequest.Order.SubscriptionTransactionId);
 
             if (!string.IsNullOrEmpty(error))
@@ -387,52 +387,55 @@ namespace Nop.Plugin.Payments.Qualpay
             }
 
             //locales
-            _localizationService.AddOrUpdatePluginLocaleResource("Enums.Nop.Plugin.Payments.Qualpay.Domain.Authorization", "Authorization");
-            _localizationService.AddOrUpdatePluginLocaleResource("Enums.Nop.Plugin.Payments.Qualpay.Domain.Sale", "Sale (authorization and capture)");
-            _localizationService.AddOrUpdatePluginLocaleResource("Plugins.Payments.Qualpay.Customer", "Qualpay Vault Customer");
-            _localizationService.AddOrUpdatePluginLocaleResource("Plugins.Payments.Qualpay.Customer.Card", "Use a previously saved card");
-            _localizationService.AddOrUpdatePluginLocaleResource("Plugins.Payments.Qualpay.Customer.Card.ExpirationDate", "Expiration date");
-            _localizationService.AddOrUpdatePluginLocaleResource("Plugins.Payments.Qualpay.Customer.Card.Id", "ID");
-            _localizationService.AddOrUpdatePluginLocaleResource("Plugins.Payments.Qualpay.Customer.Card.MaskedNumber", "Card number");
-            _localizationService.AddOrUpdatePluginLocaleResource("Plugins.Payments.Qualpay.Customer.Card.Save", "Save card data for future purchases");
-            _localizationService.AddOrUpdatePluginLocaleResource("Plugins.Payments.Qualpay.Customer.Card.Select", "Select a card");
-            _localizationService.AddOrUpdatePluginLocaleResource("Plugins.Payments.Qualpay.Customer.Card.Token", "Use a tokenized card");
-            _localizationService.AddOrUpdatePluginLocaleResource("Plugins.Payments.Qualpay.Customer.Card.Type", "Type");
-            _localizationService.AddOrUpdatePluginLocaleResource("Plugins.Payments.Qualpay.Customer.Create", "Add to Vault");
-            _localizationService.AddOrUpdatePluginLocaleResource("Plugins.Payments.Qualpay.Customer.Hint", "Qualpay Vault Customer ID");
-            _localizationService.AddOrUpdatePluginLocaleResource("Plugins.Payments.Qualpay.Customer.NotExists", "The customer is not yet in Qualpay Customer Vault");
-            _localizationService.AddOrUpdatePluginLocaleResource("Plugins.Payments.Qualpay.Fields.AdditionalFee", "Additional fee");
-            _localizationService.AddOrUpdatePluginLocaleResource("Plugins.Payments.Qualpay.Fields.AdditionalFee.Hint", "Enter additional fee to charge your customers.");
-            _localizationService.AddOrUpdatePluginLocaleResource("Plugins.Payments.Qualpay.Fields.AdditionalFeePercentage", "Additional fee. Use percentage");
-            _localizationService.AddOrUpdatePluginLocaleResource("Plugins.Payments.Qualpay.Fields.AdditionalFeePercentage.Hint", "Determine whether to apply a percentage additional fee to the order total. If not enabled, a fixed value is used.");
-            _localizationService.AddOrUpdatePluginLocaleResource("Plugins.Payments.Qualpay.Fields.MerchantEmail", "Email");
-            _localizationService.AddOrUpdatePluginLocaleResource("Plugins.Payments.Qualpay.Fields.MerchantEmail.Hint", "Enter your email to subscribe to Qualpay news.");
-            _localizationService.AddOrUpdatePluginLocaleResource("Plugins.Payments.Qualpay.Fields.MerchantId", "Merchant ID");
-            _localizationService.AddOrUpdatePluginLocaleResource("Plugins.Payments.Qualpay.Fields.MerchantId.Hint", "Specify your Qualpay merchant identifier.");
-            _localizationService.AddOrUpdatePluginLocaleResource("Plugins.Payments.Qualpay.Fields.MerchantId.Required", "Merchant ID is required if a Security key is present.");
-            _localizationService.AddOrUpdatePluginLocaleResource("Plugins.Payments.Qualpay.Fields.PaymentTransactionType", "Transaction type");
-            _localizationService.AddOrUpdatePluginLocaleResource("Plugins.Payments.Qualpay.Fields.PaymentTransactionType.Hint", "Choose payment transaction type.");
-            _localizationService.AddOrUpdatePluginLocaleResource("Plugins.Payments.Qualpay.Fields.ProfileId", "Profile ID");
-            _localizationService.AddOrUpdatePluginLocaleResource("Plugins.Payments.Qualpay.Fields.ProfileId.Hint", "Specify your Qualpay profile identifier.");
-            _localizationService.AddOrUpdatePluginLocaleResource("Plugins.Payments.Qualpay.Fields.ProfileId.Required", "Profile ID is required when Qualpay Recurring Billing is enabled.");
-            _localizationService.AddOrUpdatePluginLocaleResource("Plugins.Payments.Qualpay.Fields.SecurityKey", "Security key");
-            _localizationService.AddOrUpdatePluginLocaleResource("Plugins.Payments.Qualpay.Fields.SecurityKey.Hint", "Specify your Qualpay security key.");
-            _localizationService.AddOrUpdatePluginLocaleResource("Plugins.Payments.Qualpay.Fields.SecurityKey.Required", "Security key is required if a Merchant ID is present.");
-            _localizationService.AddOrUpdatePluginLocaleResource("Plugins.Payments.Qualpay.Fields.UseCustomerVault", "Use Customer Vault");
-            _localizationService.AddOrUpdatePluginLocaleResource("Plugins.Payments.Qualpay.Fields.UseCustomerVault.Hint", "Determine whether to use Qualpay Customer Vault feature. The Customer Vault reduces the amount of associated payment data that touches your servers and enables subsequent payment billing information to be fulfilled by Qualpay.");
-            _localizationService.AddOrUpdatePluginLocaleResource("Plugins.Payments.Qualpay.Fields.UseEmbeddedFields", "Use Embedded Fields");
-            _localizationService.AddOrUpdatePluginLocaleResource("Plugins.Payments.Qualpay.Fields.UseEmbeddedFields.Hint", "Determine whether to use Qualpay Embedded Fields feature. Your customer will remain on your website, but payment information is collected and processed on Qualpay servers. Since your server is not processing customer payment data, your PCI DSS compliance scope is greatly reduced.");
-            _localizationService.AddOrUpdatePluginLocaleResource("Plugins.Payments.Qualpay.Fields.UseEmbeddedFields.TransientKey.Required", "Qualpay Embedded Fields cannot be invoked without a transient key");
-            _localizationService.AddOrUpdatePluginLocaleResource("Plugins.Payments.Qualpay.Fields.UseRecurringBilling", "Use Recurring Billing");
-            _localizationService.AddOrUpdatePluginLocaleResource("Plugins.Payments.Qualpay.Fields.UseRecurringBilling.Hint", "Determine whether to use Qualpay Recurring Billing feature. Support setting your customers up for recurring or subscription payments.");
-            _localizationService.AddOrUpdatePluginLocaleResource("Plugins.Payments.Qualpay.Fields.UseSandbox", "Use Sandbox");
-            _localizationService.AddOrUpdatePluginLocaleResource("Plugins.Payments.Qualpay.Fields.UseSandbox.Hint", "Determine whether to enable sandbox (testing environment).");
-            _localizationService.AddOrUpdatePluginLocaleResource("Plugins.Payments.Qualpay.Fields.Webhook.Warning", "Webhook was not created (you'll not be able to handle recurring payments)");
-            _localizationService.AddOrUpdatePluginLocaleResource("Plugins.Payments.Qualpay.PaymentMethodDescription", "Pay by credit / debit card using Qualpay payment gateway");
-            _localizationService.AddOrUpdatePluginLocaleResource("Plugins.Payments.Qualpay.Subscribe", "Stay informed");
-            _localizationService.AddOrUpdatePluginLocaleResource("Plugins.Payments.Qualpay.Subscribe.Error", "An error has occurred");
-            _localizationService.AddOrUpdatePluginLocaleResource("Plugins.Payments.Qualpay.Subscribe.Success", "You have subscribed to Qualpay news");
-            _localizationService.AddOrUpdatePluginLocaleResource("Plugins.Payments.Qualpay.Unsubscribe.Success", "You have unsubscribed from Qualpay news");
+            _localizationService.AddPluginLocaleResource(new Dictionary<string, string>
+            {
+                ["Enums.Nop.Plugin.Payments.Qualpay.Domain.Authorization"] = "Authorization",
+                ["Enums.Nop.Plugin.Payments.Qualpay.Domain.Sale"] = "Sale (authorization and capture)",
+                ["Plugins.Payments.Qualpay.Customer"] = "Qualpay Vault Customer",
+                ["Plugins.Payments.Qualpay.Customer.Card"] = "Use a previously saved card",
+                ["Plugins.Payments.Qualpay.Customer.Card.ExpirationDate"] = "Expiration date",
+                ["Plugins.Payments.Qualpay.Customer.Card.Id"] = "ID",
+                ["Plugins.Payments.Qualpay.Customer.Card.MaskedNumber"] = "Card number",
+                ["Plugins.Payments.Qualpay.Customer.Card.Save"] = "Save card data for future purchases",
+                ["Plugins.Payments.Qualpay.Customer.Card.Select"] = "Select a card",
+                ["Plugins.Payments.Qualpay.Customer.Card.Token"] = "Use a tokenized card",
+                ["Plugins.Payments.Qualpay.Customer.Card.Type"] = "Type",
+                ["Plugins.Payments.Qualpay.Customer.Create"] = "Add to Vault",
+                ["Plugins.Payments.Qualpay.Customer.Hint"] = "Qualpay Vault Customer ID",
+                ["Plugins.Payments.Qualpay.Customer.NotExists"] = "The customer is not yet in Qualpay Customer Vault",
+                ["Plugins.Payments.Qualpay.Fields.AdditionalFee"] = "Additional fee",
+                ["Plugins.Payments.Qualpay.Fields.AdditionalFee.Hint"] = "Enter additional fee to charge your customers.",
+                ["Plugins.Payments.Qualpay.Fields.AdditionalFeePercentage"] = "Additional fee. Use percentage",
+                ["Plugins.Payments.Qualpay.Fields.AdditionalFeePercentage.Hint"] = "Determine whether to apply a percentage additional fee to the order total. If not enabled, a fixed value is used.",
+                ["Plugins.Payments.Qualpay.Fields.MerchantEmail"] = "Email",
+                ["Plugins.Payments.Qualpay.Fields.MerchantEmail.Hint"] = "Enter your email to subscribe to Qualpay news.",
+                ["Plugins.Payments.Qualpay.Fields.MerchantId"] = "Merchant ID",
+                ["Plugins.Payments.Qualpay.Fields.MerchantId.Hint"] = "Specify your Qualpay merchant identifier.",
+                ["Plugins.Payments.Qualpay.Fields.MerchantId.Required"] = "Merchant ID is required if a Security key is present.",
+                ["Plugins.Payments.Qualpay.Fields.PaymentTransactionType"] = "Transaction type",
+                ["Plugins.Payments.Qualpay.Fields.PaymentTransactionType.Hint"] = "Choose payment transaction type.",
+                ["Plugins.Payments.Qualpay.Fields.ProfileId"] = "Profile ID",
+                ["Plugins.Payments.Qualpay.Fields.ProfileId.Hint"] = "Specify your Qualpay profile identifier.",
+                ["Plugins.Payments.Qualpay.Fields.ProfileId.Required"] = "Profile ID is required when Qualpay Recurring Billing is enabled.",
+                ["Plugins.Payments.Qualpay.Fields.SecurityKey"] = "Security key",
+                ["Plugins.Payments.Qualpay.Fields.SecurityKey.Hint"] = "Specify your Qualpay security key.",
+                ["Plugins.Payments.Qualpay.Fields.SecurityKey.Required"] = "Security key is required if a Merchant ID is present.",
+                ["Plugins.Payments.Qualpay.Fields.UseCustomerVault"] = "Use Customer Vault",
+                ["Plugins.Payments.Qualpay.Fields.UseCustomerVault.Hint"] = "Determine whether to use Qualpay Customer Vault feature. The Customer Vault reduces the amount of associated payment data that touches your servers and enables subsequent payment billing information to be fulfilled by Qualpay.",
+                ["Plugins.Payments.Qualpay.Fields.UseEmbeddedFields"] = "Use Embedded Fields",
+                ["Plugins.Payments.Qualpay.Fields.UseEmbeddedFields.Hint"] = "Determine whether to use Qualpay Embedded Fields feature. Your customer will remain on your website, but payment information is collected and processed on Qualpay servers. Since your server is not processing customer payment data, your PCI DSS compliance scope is greatly reduced.",
+                ["Plugins.Payments.Qualpay.Fields.UseEmbeddedFields.TransientKey.Required"] = "Qualpay Embedded Fields cannot be invoked without a transient key",
+                ["Plugins.Payments.Qualpay.Fields.UseRecurringBilling"] = "Use Recurring Billing",
+                ["Plugins.Payments.Qualpay.Fields.UseRecurringBilling.Hint"] = "Determine whether to use Qualpay Recurring Billing feature. Support setting your customers up for recurring or subscription payments.",
+                ["Plugins.Payments.Qualpay.Fields.UseSandbox"] = "Use Sandbox",
+                ["Plugins.Payments.Qualpay.Fields.UseSandbox.Hint"] = "Determine whether to enable sandbox (testing environment).",
+                ["Plugins.Payments.Qualpay.Fields.Webhook.Warning"] = "Webhook was not created (you'll not be able to handle recurring payments)",
+                ["Plugins.Payments.Qualpay.PaymentMethodDescription"] = "Pay by credit / debit card using Qualpay payment gateway",
+                ["Plugins.Payments.Qualpay.Subscribe"] = "Stay informed",
+                ["Plugins.Payments.Qualpay.Subscribe.Error"] = "An error has occurred",
+                ["Plugins.Payments.Qualpay.Subscribe.Success"] = "You have subscribed to Qualpay news",
+                ["Plugins.Payments.Qualpay.Unsubscribe.Success"] = "You have unsubscribed from Qualpay news"
+            });
 
             base.Install();
         }
@@ -451,52 +454,8 @@ namespace Nop.Plugin.Payments.Qualpay
             _settingService.DeleteSetting<QualpaySettings>();
 
             //locales
-            _localizationService.DeletePluginLocaleResource("Enums.Nop.Plugin.Payments.Qualpay.Domain.Authorization");
-            _localizationService.DeletePluginLocaleResource("Enums.Nop.Plugin.Payments.Qualpay.Domain.Sale");
-            _localizationService.DeletePluginLocaleResource("Plugins.Payments.Qualpay.Customer");
-            _localizationService.DeletePluginLocaleResource("Plugins.Payments.Qualpay.Customer.Card");
-            _localizationService.DeletePluginLocaleResource("Plugins.Payments.Qualpay.Customer.Card.ExpirationDate");
-            _localizationService.DeletePluginLocaleResource("Plugins.Payments.Qualpay.Customer.Card.Id");
-            _localizationService.DeletePluginLocaleResource("Plugins.Payments.Qualpay.Customer.Card.MaskedNumber");
-            _localizationService.DeletePluginLocaleResource("Plugins.Payments.Qualpay.Customer.Card.Save");
-            _localizationService.DeletePluginLocaleResource("Plugins.Payments.Qualpay.Customer.Card.Select");
-            _localizationService.DeletePluginLocaleResource("Plugins.Payments.Qualpay.Customer.Card.Token");
-            _localizationService.DeletePluginLocaleResource("Plugins.Payments.Qualpay.Customer.Card.Type");
-            _localizationService.DeletePluginLocaleResource("Plugins.Payments.Qualpay.Customer.Create");
-            _localizationService.DeletePluginLocaleResource("Plugins.Payments.Qualpay.Customer.Hint");
-            _localizationService.DeletePluginLocaleResource("Plugins.Payments.Qualpay.Customer.NotExists");
-            _localizationService.DeletePluginLocaleResource("Plugins.Payments.Qualpay.Fields.AdditionalFee");
-            _localizationService.DeletePluginLocaleResource("Plugins.Payments.Qualpay.Fields.AdditionalFee.Hint");
-            _localizationService.DeletePluginLocaleResource("Plugins.Payments.Qualpay.Fields.AdditionalFeePercentage");
-            _localizationService.DeletePluginLocaleResource("Plugins.Payments.Qualpay.Fields.AdditionalFeePercentage.Hint");
-            _localizationService.DeletePluginLocaleResource("Plugins.Payments.Qualpay.Fields.MerchantEmail");
-            _localizationService.DeletePluginLocaleResource("Plugins.Payments.Qualpay.Fields.MerchantEmail.Hint");
-            _localizationService.DeletePluginLocaleResource("Plugins.Payments.Qualpay.Fields.MerchantEmail.Required");
-            _localizationService.DeletePluginLocaleResource("Plugins.Payments.Qualpay.Fields.MerchantId");
-            _localizationService.DeletePluginLocaleResource("Plugins.Payments.Qualpay.Fields.MerchantId.Hint");
-            _localizationService.DeletePluginLocaleResource("Plugins.Payments.Qualpay.Fields.PaymentTransactionType");
-            _localizationService.DeletePluginLocaleResource("Plugins.Payments.Qualpay.Fields.PaymentTransactionType.Hint");
-            _localizationService.DeletePluginLocaleResource("Plugins.Payments.Qualpay.Fields.ProfileId");
-            _localizationService.DeletePluginLocaleResource("Plugins.Payments.Qualpay.Fields.ProfileId.Hint");
-            _localizationService.DeletePluginLocaleResource("Plugins.Payments.Qualpay.Fields.ProfileId.Required");
-            _localizationService.DeletePluginLocaleResource("Plugins.Payments.Qualpay.Fields.SecurityKey");
-            _localizationService.DeletePluginLocaleResource("Plugins.Payments.Qualpay.Fields.SecurityKey.Hint");
-            _localizationService.DeletePluginLocaleResource("Plugins.Payments.Qualpay.Fields.SecurityKey.Required");
-            _localizationService.DeletePluginLocaleResource("Plugins.Payments.Qualpay.Fields.UseCustomerVault");
-            _localizationService.DeletePluginLocaleResource("Plugins.Payments.Qualpay.Fields.UseCustomerVault.Hint");
-            _localizationService.DeletePluginLocaleResource("Plugins.Payments.Qualpay.Fields.UseEmbeddedFields");
-            _localizationService.DeletePluginLocaleResource("Plugins.Payments.Qualpay.Fields.UseEmbeddedFields.Hint");
-            _localizationService.DeletePluginLocaleResource("Plugins.Payments.Qualpay.Fields.UseEmbeddedFields.TransientKey.Required");
-            _localizationService.DeletePluginLocaleResource("Plugins.Payments.Qualpay.Fields.UseRecurringBilling");
-            _localizationService.DeletePluginLocaleResource("Plugins.Payments.Qualpay.Fields.UseRecurringBilling.Hint");
-            _localizationService.DeletePluginLocaleResource("Plugins.Payments.Qualpay.Fields.UseSandbox");
-            _localizationService.DeletePluginLocaleResource("Plugins.Payments.Qualpay.Fields.UseSandbox.Hint");
-            _localizationService.DeletePluginLocaleResource("Plugins.Payments.Qualpay.Fields.Webhook.Warning");
-            _localizationService.DeletePluginLocaleResource("Plugins.Payments.Qualpay.PaymentMethodDescription");
-            _localizationService.DeletePluginLocaleResource("Plugins.Payments.Qualpay.Subscribe");
-            _localizationService.DeletePluginLocaleResource("Plugins.Payments.Qualpay.Subscribe.Error");
-            _localizationService.DeletePluginLocaleResource("Plugins.Payments.Qualpay.Subscribe.Success");
-            _localizationService.DeletePluginLocaleResource("Plugins.Payments.Qualpay.Unsubscribe.Success");
+            _localizationService.DeletePluginLocaleResources("Enums.Nop.Plugin.Payments.Qualpay");
+            _localizationService.DeletePluginLocaleResources("Plugins.Payments.Qualpay");
 
             base.Uninstall();
         }
